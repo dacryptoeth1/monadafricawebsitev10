@@ -1,0 +1,284 @@
+export type BountyCategory = 'Development' | 'Design' | 'Marketing' | 'Community' | 'Content'
+export type BountyDifficulty = 'easy' | 'medium' | 'hard'
+export type BountyStatus = 'pending' | 'approved' | 'rejected'
+
+export interface Bounty {
+  id: string
+  project_name: string
+  logo_url: string | null
+  website: string | null
+  twitter: string | null
+  discord: string | null
+  contact_email: string
+  title: string
+  description: string
+  skills_needed: string
+  category: BountyCategory
+  difficulty: BountyDifficulty
+  reward: string
+  deadline: string
+  status: BountyStatus
+  is_closed: boolean
+  is_featured: boolean
+  created_at: string
+}
+
+export type NewBounty = Omit<Bounty, 'id' | 'status' | 'created_at'>
+
+export interface Application {
+  id: string
+  bounty_id: string
+  user_id: string | null
+  full_name: string
+  email: string
+  portfolio_link: string | null
+  message: string | null
+  reviewed: boolean
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+}
+
+export type UserRole = 'Developer' | 'Designer' | 'Content Creator' | 'Community Member' | 'Founder' | 'Student'
+
+export type AdminRole = 'super_admin' | 'admin' | 'moderator'
+
+export interface Profile {
+  id: string
+  full_name: string | null
+  username: string | null
+  email: string | null
+  country: string | null
+  region: string | null
+  role: UserRole | null
+  avatar_url: string | null
+  bio: string | null
+  twitter: string | null
+  telegram: string | null
+  discord: string | null
+  website: string | null
+  github: string | null
+  wallet_address: string | null
+  wallet_provider: string | null
+  credits: number
+  xp: number
+  is_ambassador: boolean
+  profile_complete_bonus_awarded: boolean
+  wallet_bonus_awarded: boolean
+  first_submission_bonus_awarded: boolean
+  notifications_enabled: boolean
+  referral_code: string | null
+  referred_by: string | null
+  total_referrals: number
+  is_suspended: boolean
+  is_banned: boolean
+  hide_from_leaderboard: boolean
+  last_seen: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Badge {
+  code: string
+  label: string
+  emoji: string
+  description: string | null
+}
+
+export interface UserBadge {
+  user_id: string
+  badge_code: string
+  awarded_at: string
+}
+
+export interface XpTransaction {
+  id: string
+  user_id: string
+  amount: number
+  reason: string
+  created_at: string
+}
+
+export interface XpRewardConfig {
+  key: string
+  label: string
+  amount: number
+  updated_at: string
+}
+
+export interface Report {
+  id: string
+  reporter_id: string | null
+  target_type: 'bounty' | 'submission' | 'user'
+  target_id: string
+  reason: string
+  status: 'open' | 'resolved' | 'dismissed'
+  created_at: string
+}
+
+export interface Announcement {
+  id: string
+  title: string
+  body: string | null
+  pinned: boolean
+  created_by: string | null
+  created_at: string
+}
+
+export interface RoadmapItem {
+  title: string
+  description: string
+  status: 'done' | 'in_progress' | 'planned'
+}
+
+export interface FaqItem {
+  question: string
+  answer: string
+}
+
+export interface SiteContent {
+  hero_title: string
+  hero_subtitle: string
+  hero_primary_label: string
+  hero_primary_href: string
+  hero_secondary_label: string
+  hero_secondary_href: string
+  footer_text: string
+  roadmap_items: RoadmapItem[]
+  faq_items: FaqItem[]
+  updated_at: string
+}
+
+export interface CreditTransaction {
+  id: string
+  user_id: string
+  amount: number
+  reason: string
+  created_at: string
+}
+
+export interface Submission {
+  id: string
+  application_id: string | null
+  bounty_id: string
+  user_id: string
+  github_repo: string | null
+  x_post_link: string | null
+  google_docs_link: string | null
+  website_link: string | null
+  file_url: string | null
+  additional_notes: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  is_winner: boolean
+  created_at: string
+}
+
+export interface AppNotification {
+  id: string
+  user_id: string | null
+  type: 'new_bounty' | 'submission_accepted' | 'submission_rejected' | 'credits_refreshed' | 'event_announced' | 'referral' | 'application_update'
+  title: string
+  message: string | null
+  read: boolean
+  created_at: string
+}
+
+export interface EventItem {
+  id: string
+  title: string
+  description: string | null
+  event_date: string | null
+  event_type: string | null
+  link: string | null
+  created_at: string
+}
+
+export interface NewsItem {
+  id: string
+  title: string
+  summary: string | null
+  link: string | null
+  published_at: string
+  created_at: string
+}
+
+export interface EcosystemProject {
+  id: string
+  name: string
+  logo_url: string | null
+  website: string | null
+  description: string | null
+  category: string | null
+  is_featured: boolean
+  created_at: string
+}
+
+export interface Resource {
+  id: string
+  title: string
+  description: string | null
+  url: string
+  type: string | null // e.g. 'guide' | 'docs' | 'tool'
+  created_at: string
+}
+
+export interface Video {
+  id: string
+  title: string
+  youtube_url: string
+  description: string | null
+  created_at: string
+}
+
+export interface Partner {
+  id: string
+  name: string
+  logo_url: string | null
+  website: string | null
+  created_at: string
+}
+
+export interface SiteSettings {
+  x_followers: number
+  x_followers_change_week: number
+  discord_members: number
+  countries_reached: number
+  builders_onboarded: number
+  community_partners: number
+  x_url: string
+  discord_url: string
+  telegram_url: string
+  telegram_members: number
+  telegram_members_change_today: number
+  discord_online_manual: number
+  discord_joined_today: number
+  discord_guild_id: string
+  discord_widget_enabled: boolean
+  updated_at: string
+}
+
+export const defaultSiteSettings: SiteSettings = {
+  x_followers: 1103,
+  x_followers_change_week: 21,
+  discord_members: 1982,
+  countries_reached: 4,
+  builders_onboarded: 30,
+  community_partners: 2,
+  x_url: 'https://x.com/monadonafrica',
+  discord_url: 'https://discord.gg/tjY9t3PZF',
+  telegram_url: 'https://t.me/monad_africa',
+  telegram_members: 2587,
+  telegram_members_change_today: 34,
+  discord_online_manual: 132,
+  discord_joined_today: 0,
+  discord_guild_id: '',
+  discord_widget_enabled: false,
+  updated_at: '',
+}
+
+// Live Discord widget data (only used when discord_widget_enabled is
+// true and the fetch succeeds — otherwise the manual fields above are
+// shown instead, clearly labeled as manual).
+export interface DiscordWidgetData {
+  presence_count: number
+  members: { id: string }[]
+}
