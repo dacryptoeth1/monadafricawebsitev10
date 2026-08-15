@@ -16,6 +16,8 @@ import AdminLeaderboardView from './AdminLeaderboardView'
 import AdminReports from './AdminReports'
 import AdminUsers from './AdminUsers'
 import AdminSettings from './AdminSettings'
+import AdminEventRegistrations from './AdminEventRegistrations'
+import AdminCheckIn from './AdminCheckIn'
 import MonadMark from '../../components/MonadMark'
 
 // Safety cap on the three top-level lists this dashboard loads in full
@@ -28,7 +30,7 @@ import MonadMark from '../../components/MonadMark'
 // direct SQL) — flagged here rather than left as an invisible ceiling.
 const LIST_SAFETY_LIMIT = 1000
 
-type Tab = 'overview' | 'analytics' | 'pending' | 'approved' | 'rejected' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings'
+type Tab = 'overview' | 'analytics' | 'pending' | 'approved' | 'rejected' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin'
 
 const TABS: [Tab, string, boolean][] = [
   // third element: true = staff-admin+ only (hidden from Moderators)
@@ -36,6 +38,7 @@ const TABS: [Tab, string, boolean][] = [
   ['applications', 'Applications', false],
   ['users', 'Users', false], // visible to moderators too, but with fewer buttons — see AdminUsers
   ['reports', 'Reports', false], // Moderator "View reports" capability
+  ['checkin', 'Check-In', false], // door-duty task — moderators run this at events too
   ['overview', 'Overview', true],
   ['analytics', 'Analytics', true],
   ['roles', 'Roles', true],
@@ -50,6 +53,7 @@ const TABS: [Tab, string, boolean][] = [
   ['videos', 'Videos', true],
   ['partners', 'Partners', true],
   ['events', 'Events', true],
+  ['event_registrations', 'Event Registrations', true],
   ['news', 'News', true],
   ['announcements', 'Announcements', true],
   ['homepage', 'Homepage', true],
@@ -64,28 +68,34 @@ export default function AdminDashboard() {
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [applications, setApplications] = useState<Application[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [bountiesError, setBountiesError] = useState<string | null>(null)
+  const [applicationsError, setApplicationsError] = useState<string | null>(null)
+  const [submissionsError, setSubmissionsError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    if (!isStaffAdmin && !['submissions', 'applications', 'users', 'reports'].includes(tab)) {
+    if (!isStaffAdmin && !['submissions', 'applications', 'users', 'reports', 'checkin'].includes(tab)) {
       setTab('submissions')
     }
   }, [isStaffAdmin, tab])
 
   async function loadBounties() {
     const { data, error } = await supabase.from('bounties').select('*').order('created_at', { ascending: false }).limit(LIST_SAFETY_LIMIT)
-    if (error) { showToast(error.message); return }
+    if (error) { console.error('Failed to load bounties:', error); showToast(error.message); setBountiesError(error.message); return }
+    setBountiesError(null)
     setBounties((data as Bounty[]) ?? [])
   }
   async function loadApplications() {
     const { data, error } = await supabase.from('applications').select('*').order('created_at', { ascending: false }).limit(LIST_SAFETY_LIMIT)
-    if (error) { showToast(error.message); return }
+    if (error) { console.error('Failed to load applications:', error); showToast(error.message); setApplicationsError(error.message); return }
+    setApplicationsError(null)
     setApplications((data as Application[]) ?? [])
   }
   async function loadSubmissions() {
     const { data, error } = await supabase.from('submissions').select('*').order('created_at', { ascending: false }).limit(LIST_SAFETY_LIMIT)
-    if (error) { showToast(error.message); return }
+    if (error) { console.error('Failed to load submissions:', error); showToast(error.message); setSubmissionsError(error.message); return }
+    setSubmissionsError(null)
     setSubmissions((data as Submission[]) ?? [])
   }
 
@@ -253,6 +263,10 @@ export default function AdminDashboard() {
           <AdminLeaderboardView showToast={showToast} />
         ) : tab === 'reports' ? (
           <AdminReports showToast={showToast} />
+        ) : tab === 'checkin' ? (
+          <AdminCheckIn showToast={showToast} />
+        ) : tab === 'event_registrations' ? (
+          <AdminEventRegistrations showToast={showToast} />
         ) : tab === 'settings' ? (
           <AdminSettings showToast={showToast} />
         ) : tab === 'announcements' ? (
@@ -260,9 +274,9 @@ export default function AdminDashboard() {
         ) : tab === 'homepage' ? (
           <AdminHomepage showToast={showToast} />
         ) : tab === 'applications' ? (
-          <ApplicationsList items={applications} onApprove={(a) => updateApplicationStatus(a, 'approved')} onReject={(a) => updateApplicationStatus(a, 'rejected')} />
+          <ApplicationsList items={applications} loadError={applicationsError} onApprove={(a) => updateApplicationStatus(a, 'approved')} onReject={(a) => updateApplicationStatus(a, 'rejected')} />
         ) : tab === 'submissions' ? (
-          <SubmissionsList items={submissions} onApprove={(s) => updateSubmissionStatus(s, 'approved')} onReject={(s) => updateSubmissionStatus(s, 'rejected')} onExport={exportSubmissionsCsv} onMarkWinner={markSubmissionWinner} />
+          <SubmissionsList items={submissions} loadError={submissionsError} onApprove={(s) => updateSubmissionStatus(s, 'approved')} onReject={(s) => updateSubmissionStatus(s, 'rejected')} onExport={exportSubmissionsCsv} onMarkWinner={markSubmissionWinner} />
         ) : tab === 'users' ? (
           <AdminUsers showToast={showToast} isStaffAdmin={isStaffAdmin} />
         ) : tab === 'projects' ? (
@@ -356,6 +370,7 @@ export default function AdminDashboard() {
         ) : (
           <BountyList
             items={tab === 'pending' ? pending : tab === 'approved' ? approved : rejected}
+            loadError={bountiesError}
             tab={tab}
             onApprove={(id) => updateStatus(id, 'approved')}
             onReject={(id) => updateStatus(id, 'rejected')}
@@ -375,6 +390,7 @@ export default function AdminDashboard() {
 
 function BountyList({
   items,
+  loadError,
   tab,
   onApprove,
   onReject,
@@ -385,6 +401,7 @@ function BountyList({
   onToggleFeatured,
 }: {
   items: Bounty[]
+  loadError?: string | null
   tab: Tab
   onApprove: (id: string) => void
   onReject: (id: string) => void
@@ -394,6 +411,7 @@ function BountyList({
   onReopen: (id: string) => void
   onToggleFeatured: (id: string, featured: boolean) => void
 }) {
+  if (loadError) return <div className="text-rose-300 text-sm py-10 text-center">Couldn't load bounties: {loadError}</div>
   if (items.length === 0) return <div className="text-white/40 text-sm py-10 text-center">Nothing here.</div>
   return (
     <div className="flex flex-col gap-3">
@@ -429,7 +447,8 @@ function BountyList({
   )
 }
 
-function ApplicationsList({ items, onApprove, onReject }: { items: Application[]; onApprove: (a: Application) => void; onReject: (a: Application) => void }) {
+function ApplicationsList({ items, loadError, onApprove, onReject }: { items: Application[]; loadError?: string | null; onApprove: (a: Application) => void; onReject: (a: Application) => void }) {
+  if (loadError) return <div className="text-rose-300 text-sm py-10 text-center">Couldn't load applications: {loadError}</div>
   if (items.length === 0) return <div className="text-white/40 text-sm py-10 text-center">No applications yet.</div>
   return (
     <div className="flex flex-col gap-3">
@@ -457,12 +476,14 @@ function ApplicationsList({ items, onApprove, onReject }: { items: Application[]
 
 function SubmissionsList({
   items,
+  loadError,
   onApprove,
   onReject,
   onExport,
   onMarkWinner,
 }: {
   items: Submission[]
+  loadError?: string | null
   onApprove: (s: Submission) => void
   onReject: (s: Submission) => void
   onExport: () => void
@@ -475,7 +496,9 @@ function SubmissionsList({
           <Download size={13} /> Export CSV
         </button>
       </div>
-      {items.length === 0 ? (
+      {loadError ? (
+        <div className="text-rose-300 text-sm py-10 text-center">Couldn't load submissions: {loadError}</div>
+      ) : items.length === 0 ? (
         <div className="text-white/40 text-sm py-10 text-center">No submissions yet.</div>
       ) : (
         <div className="flex flex-col gap-3">

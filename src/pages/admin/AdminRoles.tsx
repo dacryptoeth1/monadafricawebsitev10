@@ -11,18 +11,21 @@ const ROLE_RANK: Record<string, number> = { user: 0, moderator: 1, admin: 2, sup
 export default function AdminRoles({ showToast }: { showToast: (msg: string) => void }) {
   const [staff, setStaff] = useState<StaffRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   async function load() {
     const { data: admins, error: adminsError } = await supabase.from('admins').select('id, role')
-    if (adminsError) { showToast(adminsError.message); setLoading(false); return }
+    if (adminsError) { console.error('Failed to load admins:', adminsError); showToast(adminsError.message); setLoadError(adminsError.message); setLoading(false); return }
     if (!admins || admins.length === 0) {
+      setLoadError(null)
       setStaff([])
       setLoading(false)
       return
     }
     const ids = admins.map((a: any) => a.id)
     const { data: profiles, error: profilesError } = await supabase.from('profiles').select('*').in('id', ids)
-    if (profilesError) { showToast(profilesError.message); setLoading(false); return }
+    if (profilesError) { console.error('Failed to load staff profiles:', profilesError); showToast(profilesError.message); setLoadError(profilesError.message); setLoading(false); return }
+    setLoadError(null)
     const roleMap = new Map(admins.map((a: any) => [a.id, a.role]))
     const rows = ((profiles as Profile[]) ?? [])
       .map((p) => ({ ...p, role_tier: roleMap.get(p.id) }))
@@ -64,7 +67,9 @@ export default function AdminRoles({ showToast }: { showToast: (msg: string) => 
         Everyone with admin-panel access, grouped by tier. Promote/demote here or from the
         Users tab — both update the same underlying role.
       </p>
-      {staff.length === 0 ? (
+      {loadError ? (
+        <div className="text-rose-300 text-sm py-10 text-center">Couldn't load staff members: {loadError}</div>
+      ) : staff.length === 0 ? (
         <div className="text-white/40 text-sm py-10 text-center">No staff members yet.</div>
       ) : (
         <div className="flex flex-col gap-3">

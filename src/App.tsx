@@ -14,6 +14,7 @@ const Home = lazy(() => import('./pages/Home'))
 const About = lazy(() => import('./pages/About'))
 const Community = lazy(() => import('./pages/Community'))
 const Bounties = lazy(() => import('./pages/Bounties'))
+const Events = lazy(() => import('./pages/Events'))
 const HostBounty = lazy(() => import('./pages/HostBounty'))
 const BeginnerHub = lazy(() => import('./pages/BeginnerHub'))
 const Ecosystem = lazy(() => import('./pages/Ecosystem'))
@@ -59,6 +60,7 @@ export default function App() {
                     <Route path="/community" element={<Community />} />
                     <Route path="/leaderboard" element={<Leaderboard />} />
                     <Route path="/bounties" element={<Bounties />} />
+                    <Route path="/events" element={<Events />} />
                     <Route path="/host-bounty" element={<HostBounty />} />
                     <Route path="/beginner-hub" element={<BeginnerHub />} />
                     <Route path="/ecosystem" element={<Ecosystem />} />

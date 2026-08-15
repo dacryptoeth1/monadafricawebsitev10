@@ -14,6 +14,7 @@ export default function AdminUsers({ showToast, isStaffAdmin }: { showToast: (ms
   const [profileFor, setProfileFor] = useState<Profile | null>(null)
   const [adminRoles, setAdminRoles] = useState<Map<string, AdminRole>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
@@ -67,10 +68,13 @@ export default function AdminUsers({ showToast, isStaffAdmin }: { showToast: (ms
     const { data, error, count } = await query.range(from, from + PAGE_SIZE - 1)
 
     if (error) {
+      console.error('Failed to load users:', error)
       showToast(error.message)
+      setLoadError(error.message)
       setLoading(false)
       return
     }
+    setLoadError(null)
     setUsers((data as Profile[]) ?? [])
     setTotalCount(count ?? 0)
     setLoading(false)
@@ -243,6 +247,8 @@ export default function AdminUsers({ showToast, isStaffAdmin }: { showToast: (ms
 
       {loading ? (
         <div className="text-white/40 text-sm py-10 text-center">Loading…</div>
+      ) : loadError ? (
+        <div className="text-rose-300 text-sm py-10 text-center">Couldn't load users: {loadError}</div>
       ) : users.length === 0 ? (
         <div className="text-white/40 text-sm py-10 text-center">No users found.</div>
       ) : (
@@ -358,12 +364,22 @@ function AmountAdjuster({ defaultValue, unit, onApply }: { defaultValue: number;
 function UserHistoryModal({ user, onClose, showToast }: { user: Profile; onClose: () => void; showToast: (msg: string) => void }) {
   const [credits, setCredits] = useState<{ id: string; amount: number; reason: string; created_at: string }[] | null>(null)
   const [xp, setXp] = useState<{ id: string; amount: number; reason: string; created_at: string }[] | null>(null)
+  const [creditsError, setCreditsError] = useState<string | null>(null)
+  const [xpError, setXpError] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.from('credit_transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50)
-      .then(({ data, error }) => { if (error) showToast(error.message); setCredits(data ?? []) })
+      .then(({ data, error }) => {
+        if (error) { console.error('Failed to load credit history:', error); showToast(error.message) }
+        setCreditsError(error?.message ?? null)
+        setCredits(data ?? [])
+      })
     supabase.from('xp_transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50)
-      .then(({ data, error }) => { if (error) showToast(error.message); setXp(data ?? []) })
+      .then(({ data, error }) => {
+        if (error) { console.error('Failed to load XP history:', error); showToast(error.message) }
+        setXpError(error?.message ?? null)
+        setXp(data ?? [])
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id])
 
@@ -379,6 +395,8 @@ function UserHistoryModal({ user, onClose, showToast }: { user: Profile; onClose
         <div className="flex flex-col gap-1.5 mb-5">
           {credits === null ? (
             <div className="text-white/30 text-xs">Loading…</div>
+          ) : creditsError ? (
+            <div className="text-rose-300 text-xs">Couldn't load credit history: {creditsError}</div>
           ) : credits.length === 0 ? (
             <div className="text-white/30 text-xs">No credit activity.</div>
           ) : (
@@ -395,6 +413,8 @@ function UserHistoryModal({ user, onClose, showToast }: { user: Profile; onClose
         <div className="flex flex-col gap-1.5">
           {xp === null ? (
             <div className="text-white/30 text-xs">Loading…</div>
+          ) : xpError ? (
+            <div className="text-rose-300 text-xs">Couldn't load XP history: {xpError}</div>
           ) : xp.length === 0 ? (
             <div className="text-white/30 text-xs">No XP activity.</div>
           ) : (

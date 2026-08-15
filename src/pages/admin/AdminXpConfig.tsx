@@ -5,11 +5,13 @@ import type { XpRewardConfig } from '../../types'
 export default function AdminXpConfig({ showToast }: { showToast: (msg: string) => void }) {
   const [rewards, setRewards] = useState<XpRewardConfig[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
 
   async function load() {
     const { data, error } = await supabase.from('xp_reward_config').select('*').order('key')
-    if (error) showToast(error.message)
+    if (error) { console.error('Failed to load XP reward config:', error); showToast(error.message) }
+    setLoadError(error?.message ?? null)
     setRewards((data as XpRewardConfig[]) ?? [])
     setLoading(false)
   }
@@ -47,11 +49,15 @@ export default function AdminXpConfig({ showToast }: { showToast: (msg: string) 
         no code changes needed. "Community Campaign" is the default amount used when awarding
         XP manually from the Users tab; you can still override it per-award there.
       </p>
-      <div className="flex flex-col gap-3">
-        {rewards.map((r) => (
-          <RewardRow key={r.key} reward={r} saving={saving === r.key} onSave={(amt) => save(r.key, amt)} />
-        ))}
-      </div>
+      {loadError ? (
+        <div className="text-rose-300 text-sm py-6 text-center">Couldn't load XP reward config: {loadError}</div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {rewards.map((r) => (
+            <RewardRow key={r.key} reward={r} saving={saving === r.key} onSave={(amt) => save(r.key, amt)} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

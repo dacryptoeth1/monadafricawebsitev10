@@ -12,6 +12,7 @@ import MonadOfficialBadge from './MonadOfficialBadge'
 const NAV = [
   { to: '/about', label: 'About' },
   { to: '/bounties', label: 'Bounties' },
+  { to: '/events', label: 'Events' },
   { to: '/leaderboard', label: 'Leaderboard' },
   { to: '/beginner-hub', label: 'Beginner Hub' },
   { to: '/ecosystem', label: 'Ecosystem' },

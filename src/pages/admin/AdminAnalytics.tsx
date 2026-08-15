@@ -32,6 +32,7 @@ interface CategoryStat {
 
 export default function AdminAnalytics({ showToast }: { showToast: (msg: string) => void }) {
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [funnel, setFunnel] = useState<FunnelStage[]>([])
   const [byCategory, setByCategory] = useState<CategoryStat[]>([])
   const [byDifficulty, setByDifficulty] = useState<CategoryStat[]>([])
@@ -55,8 +56,8 @@ export default function AdminAnalytics({ showToast }: { showToast: (msg: string)
         supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
         supabase.from('submissions').select('*', { count: 'exact', head: true }).eq('is_winner', true),
       ])
-      const firstError = [signups, applications, submissions, approved, winners].find((r) => r.error)
-      if (firstError?.error) showToast(firstError.error.message)
+      const firstError = [signups, applications, submissions, approved, winners].find((r) => r.error)?.error
+      if (firstError) showToast(firstError.message)
 
       // Category/difficulty breakdown: bounties table is small (tens to
       // low hundreds of rows in practice, unlike users/transactions), and
@@ -74,7 +75,11 @@ export default function AdminAnalytics({ showToast }: { showToast: (msg: string)
       if (xpTotalsRes.error) showToast(xpTotalsRes.error.message)
       if (xpByReasonRes.error) showToast(xpByReasonRes.error.message)
 
+      const anyError = firstError || bountiesError || creditTotalsRes.error || xpTotalsRes.error || xpByReasonRes.error
+      if (anyError) console.error('Failed to load analytics:', anyError)
+
       if (cancelled) return
+      setLoadError(anyError?.message ?? null)
 
       setFunnel([
         { label: 'Signups', count: signups.count ?? 0 },
@@ -119,6 +124,12 @@ export default function AdminAnalytics({ showToast }: { showToast: (msg: string)
 
   return (
     <div className="flex flex-col gap-8">
+      {loadError && (
+        <div className="rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-xs text-rose-200">
+          Some analytics data couldn't be loaded: {loadError}
+        </div>
+      )}
+
       <div>
         <h4 className="text-sm font-semibold mb-3">Conversion Funnel</h4>
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 flex flex-col gap-3">

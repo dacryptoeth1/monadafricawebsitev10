@@ -8,11 +8,13 @@ const TOP_N_OPTIONS = [10, 25, 50, 100]
 
 export default function AdminLeaderboardView({ showToast }: { showToast: (msg: string) => void }) {
   const [users, setUsers] = useState<Profile[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [topN, setTopN] = useState(25)
 
   async function load() {
     const { data, error } = await supabase.from('profiles').select('*').order('xp', { ascending: false }).limit(topN)
-    if (error) { showToast(error.message); setUsers([]); return }
+    if (error) { console.error('Failed to load leaderboard:', error); showToast(error.message); setLoadError(error.message); setUsers([]); return }
+    setLoadError(null)
     setUsers((data as Profile[]) ?? [])
   }
 
@@ -44,6 +46,8 @@ export default function AdminLeaderboardView({ showToast }: { showToast: (msg: s
 
       {users === null ? (
         <div className="text-white/40 text-sm">Loading…</div>
+      ) : loadError ? (
+        <div className="text-rose-300 text-sm py-10 text-center">Couldn't load the leaderboard: {loadError}</div>
       ) : users.length === 0 ? (
         <div className="text-white/40 text-sm py-10 text-center">No users yet.</div>
       ) : (

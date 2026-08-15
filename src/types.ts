@@ -182,6 +182,9 @@ export interface AppNotification {
   created_at: string
 }
 
+// Narrow view of `public.events` for the simple homepage announcement
+// feed and the Admin → Events tab (title/type/date/link only — see
+// EventListing above for the same table's registration columns).
 export interface EventItem {
   id: string
   title: string
@@ -235,6 +238,57 @@ export interface Partner {
   logo_url: string | null
   website: string | null
   created_at: string
+}
+
+export type EventListingStatus = 'draft' | 'published' | 'cancelled'
+
+// Registration-capable view of `public.events` — the SAME table the
+// simpler homepage/admin "Events" announcement feed reads (EventItem
+// below), just selecting the additional registration/check-in columns
+// added in supabase/migrations/0016_events_table_unification.sql. There
+// is no separate `event_listings` table — an earlier round's design
+// (0015_event_registration_system.sql) planned one but it was never
+// actually created on this project's database, so 0016 unified
+// everything onto `events` + `event_registrations` instead.
+export interface EventListing {
+  id: string
+  title: string
+  description: string | null
+  event_date: string
+  event_type: string | null
+  link: string | null
+  start_time: string | null
+  end_time: string | null
+  location: string | null
+  image_url: string | null
+  event_url: string | null
+  capacity: number | null
+  registration_deadline: string | null
+  registration_open: boolean
+  status: EventListingStatus
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface EventRegistration {
+  id: string
+  event_id: string
+  full_name: string
+  email: string
+  country: string
+  twitter: string | null
+  phone: string | null
+  wallet_address: string | null
+  invite_code: string
+  checked_in: boolean
+  checked_in_at: string | null
+  checked_in_by: string | null
+  email_sent: boolean
+  email_sent_at: string | null
+  email_last_error: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface SiteSettings {
