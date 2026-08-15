@@ -26,6 +26,7 @@ export default function AdminCollectionPanel({
 }) {
   const [items, setItems] = useState<Record<string, any>[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [form, setForm] = useState<Record<string, string>>({})
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -33,7 +34,11 @@ export default function AdminCollectionPanel({
   async function load() {
     setLoading(true)
     const { data, error } = await supabase.from(table).select('*').order('created_at', { ascending: false })
-    if (error) showToast(error.message)
+    if (error) {
+      console.error(`Failed to load ${table}:`, error)
+      showToast(error.message)
+    }
+    setLoadError(error?.message ?? null)
     setItems(data ?? [])
     setLoading(false)
   }
@@ -141,6 +146,8 @@ export default function AdminCollectionPanel({
 
       {loading ? (
         <div className="text-white/40 text-sm">Loading…</div>
+      ) : loadError ? (
+        <div className="text-rose-300 text-sm py-6 text-center">Couldn't load this list: {loadError}</div>
       ) : items.length === 0 ? (
         <div className="text-white/40 text-sm py-6 text-center">Nothing here yet.</div>
       ) : (

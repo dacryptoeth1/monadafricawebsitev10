@@ -26,6 +26,7 @@ interface TopUser {
 
 export default function AdminOverview({ showToast }: { showToast: (msg: string) => void }) {
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings)
 
   const [totalUsers, setTotalUsers] = useState(0)
@@ -88,7 +89,8 @@ export default function AdminOverview({ showToast }: { showToast: (msg: string) 
       if (cancelled) return
 
       const firstError = results.find((r: any) => r.error)?.error
-      if (firstError) showToast(firstError.message)
+      if (firstError) { console.error('Failed to load overview data:', firstError); showToast(firstError.message) }
+      setLoadError(firstError?.message ?? null)
 
       const [
         totalUsersRes, onlineRes, dailyRes, weeklyRes, monthlyRes,
@@ -186,6 +188,12 @@ export default function AdminOverview({ showToast }: { showToast: (msg: string) 
 
   return (
     <div>
+      {loadError && (
+        <div className="mb-6 rounded-xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-xs text-rose-200">
+          Some overview data couldn't be loaded: {loadError}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         <Stat label="Total Users" value={totalUsers} />
         <Stat label="Community Members" value={communityMembers} />

@@ -6,6 +6,7 @@ import type { Announcement } from '../../types'
 export default function AdminAnnouncements({ showToast }: { showToast: (msg: string) => void }) {
   const [items, setItems] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
 
@@ -15,7 +16,8 @@ export default function AdminAnnouncements({ showToast }: { showToast: (msg: str
 
   async function load() {
     const { data, error } = await supabase.from('announcements').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false })
-    if (error) showToast(error.message)
+    if (error) { console.error('Failed to load announcements:', error); showToast(error.message) }
+    setLoadError(error?.message ?? null)
     setItems((data as Announcement[]) ?? [])
     setLoading(false)
   }
@@ -97,7 +99,9 @@ export default function AdminAnnouncements({ showToast }: { showToast: (msg: str
       </div>
 
       <h4 className="text-xs font-mono uppercase text-white/40 mb-3">Announcement History</h4>
-      {items.length === 0 ? (
+      {loadError ? (
+        <div className="text-rose-300 text-sm py-6 text-center">Couldn't load announcements: {loadError}</div>
+      ) : items.length === 0 ? (
         <div className="text-white/40 text-sm py-6 text-center">No announcements yet.</div>
       ) : (
         <div className="flex flex-col gap-2.5">

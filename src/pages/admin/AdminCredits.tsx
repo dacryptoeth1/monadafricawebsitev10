@@ -18,6 +18,7 @@ export default function AdminCredits({ showToast }: { showToast: (msg: string) =
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     // Server-side sum via a SQL aggregate RPC instead of pulling every
@@ -42,11 +43,14 @@ export default function AdminCredits({ showToast }: { showToast: (msg: string) =
       .range(from, from + PAGE_SIZE - 1)
 
     if (error) {
+      console.error('Failed to load credit transactions:', error)
       showToast(error.message)
+      setLoadError(error.message)
       setLoading(false)
       setLoadingMore(false)
       return
     }
+    setLoadError(null)
     const fetched = (data as unknown as LedgerRow[]) ?? []
     setRows((prev) => (p === 0 ? fetched : [...prev, ...fetched]))
     setHasMore(fetched.length === PAGE_SIZE)
@@ -71,6 +75,8 @@ export default function AdminCredits({ showToast }: { showToast: (msg: string) =
       <h4 className="text-xs font-mono uppercase text-white/40 mb-3">Recent Activity</h4>
       {loading ? (
         <div className="text-white/40 text-sm">Loading…</div>
+      ) : loadError ? (
+        <div className="text-rose-300 text-sm py-10 text-center">Couldn't load credit activity: {loadError}</div>
       ) : rows.length === 0 ? (
         <div className="text-white/40 text-sm py-10 text-center">No credit activity yet.</div>
       ) : (

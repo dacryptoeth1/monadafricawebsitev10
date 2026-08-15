@@ -4,13 +4,15 @@ import type { Report } from '../../types'
 
 export default function AdminReports({ showToast }: { showToast: (msg: string) => void }) {
   const [reports, setReports] = useState<Report[] | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'open' | 'all'>('open')
 
   async function load() {
     let q = supabase.from('reports').select('*').order('created_at', { ascending: false })
     if (filter === 'open') q = q.eq('status', 'open')
     const { data, error } = await q
-    if (error) { showToast(error.message); setReports([]); return }
+    if (error) { console.error('Failed to load reports:', error); showToast(error.message); setLoadError(error.message); setReports([]); return }
+    setLoadError(null)
     setReports((data as Report[]) ?? [])
   }
 
@@ -35,6 +37,8 @@ export default function AdminReports({ showToast }: { showToast: (msg: string) =
 
       {reports === null ? (
         <div className="text-white/40 text-sm">Loading…</div>
+      ) : loadError ? (
+        <div className="text-rose-300 text-sm py-10 text-center">Couldn't load reports: {loadError}</div>
       ) : reports.length === 0 ? (
         <div className="text-white/40 text-sm py-10 text-center">{filter === 'open' ? 'No open reports.' : 'No reports yet.'}</div>
       ) : (
