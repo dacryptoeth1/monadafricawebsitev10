@@ -26,7 +26,6 @@ interface AuthValue {
   updatePassword: (newPassword: string) => Promise<void>
   refreshProfile: () => Promise<void>
   resendVerificationEmail: (email: string) => Promise<void>
-  signInWithGoogle: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthValue | undefined>(undefined)
@@ -157,14 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }
 
-  async function signInWithGoogle() {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` },
-    })
-    if (error) throw error
-  }
-
   async function signOut() {
     await supabase.auth.signOut()
   }
@@ -202,7 +193,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatePassword,
         refreshProfile,
         resendVerificationEmail,
-        signInWithGoogle,
       }}
     >
       {children}

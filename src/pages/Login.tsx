@@ -2,13 +2,18 @@ import { type FormEvent, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Reveal from '../components/Reveal'
-import SocialAuthButtons from '../components/SocialAuthButtons'
+import PasswordField from '../components/PasswordField'
 import MonadMark from '../components/MonadMark'
 
 export default function Login() {
   const { signIn, resendVerificationEmail } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation() as { state?: { from?: string } }
+  // `from` is the existing redirect-after-login target (set by
+  // RequireAuth for gated routes). `eventId` is the same idea extended
+  // for the public Events page: a logged-out visitor who clicked an
+  // event to register is sent here with both, and after a successful
+  // login is sent back to that exact event (see Events.tsx).
+  const location = useLocation() as { state?: { from?: string; eventId?: string } }
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -22,18 +27,40 @@ export default function Login() {
     setUnverified(false)
     setResent(false)
     setLoading(true)
+
     try {
       await signIn(email, password)
-      navigate(location.state?.from || '/dashboard')
     } catch (err: any) {
-      if (String(err?.message || '').toLowerCase().includes('email not confirmed')) {
-        setUnverified(true)
-      } else {
-        setError('Invalid email or password.')
-      }
-    } finally {
       setLoading(false)
+      const message = String(err?.message || '')
+      console.error('[Login] signIn failed:', err)
+      if (message.toLowerCase().includes('email not confirmed')) {
+        setUnverified(true)
+      } else if (message.toLowerCase().includes('invalid login credentials') || message.toLowerCase().includes('invalid email or password')) {
+        // Supabase's actual message for a genuinely wrong email/password.
+        setError('Invalid email or password.')
+      } else {
+        // Anything else (network failure, rate limit, project/config
+        // issue, etc.) is a real, different problem — show what
+        // Supabase actually said instead of misreporting it as wrong
+        // credentials, which was the bug reported: correct credentials
+        // producing a false "Invalid email or password".
+        setError(message || 'Something went wrong signing in — please try again.')
+      }
+      return
     }
+
+    // Deliberately outside the try/catch above: sign-in already
+    // succeeded at this point, so any issue with the navigation call
+    // itself must never be mislabeled as "Invalid email or password" —
+    // that previously happened because navigate() shared the same
+    // catch block as signIn(), which could report a successful login
+    // as a credentials failure.
+    const eventId = location.state?.eventId
+    navigate(location.state?.from || '/dashboard', eventId ? { state: { openEventId: eventId } } : undefined)
+    // Not resetting `loading` here on purpose — the page is navigating
+    // away, so leaving the button in its loading state avoids a
+    // one-frame flash back to "Log In" right before the transition.
   }
 
   async function handleResend() {
@@ -63,7 +90,7 @@ export default function Login() {
                 <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Password</label>
                 <Link to="/forgot-password" className="text-xs text-purple-light hover:text-white transition-colors">Forgot?</Link>
               </div>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="input" />
+              <PasswordField name="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
 
             {error && <div className="text-sm text-rose-300">{error}</div>}
@@ -85,10 +112,6 @@ export default function Login() {
               {loading ? 'Signing in…' : 'Log In'}
             </button>
           </form>
-
-          <div className="mt-6">
-            <SocialAuthButtons />
-          </div>
 
           <p className="text-center text-sm text-white/40 mt-8">
             Don't have an account? <Link to="/signup" className="text-purple-light hover:text-white transition-colors">Sign up</Link>

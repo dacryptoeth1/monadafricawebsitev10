@@ -2,7 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Reveal from '../components/Reveal'
-import SocialAuthButtons from '../components/SocialAuthButtons'
+import PasswordField from '../components/PasswordField'
 import CountrySelect from '../components/CountrySelect'
 import MonadMark from '../components/MonadMark'
 import { USER_ROLES, normalizeUserRole } from '../lib/userRole'
@@ -96,7 +96,7 @@ export default function Signup() {
             <Field label="Full Name" name="full_name" required />
             <Field label="Username" name="username" required />
             <Field label="Email" name="email" type="email" required />
-            <Field label="Password" name="password" type="password" required />
+            <PasswordField label="Password" name="password" required autoComplete="new-password" />
 
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Country</label>
@@ -129,10 +129,6 @@ export default function Signup() {
               {loading ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
-
-          <div className="mt-6">
-            <SocialAuthButtons />
-          </div>
 
           <p className="text-center text-sm text-white/40 mt-8">
             Already have an account? <Link to="/login" className="text-purple-light hover:text-white transition-colors">Log in</Link>

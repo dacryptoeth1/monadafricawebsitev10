@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { CalendarDays } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import type { EventListing } from '../types'
 import EventCard from '../components/EventCard'
 import EventRegistrationModal from '../components/EventRegistrationModal'
@@ -9,6 +11,10 @@ import EmptyState from '../components/EmptyState'
 import Reveal from '../components/Reveal'
 
 export default function Events() {
+  const { session } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const locationState = location.state as { openEventId?: string } | null
   const [events, setEvents] = useState<EventListing[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [counts, setCounts] = useState<Record<string, number>>({})
@@ -54,9 +60,34 @@ export default function Events() {
     load()
   }, [])
 
+  // Returning from Login after a logged-out visitor clicked an event
+  // (see handleOpen below): re-open that same event's registration
+  // modal automatically once the event list has loaded, then clear the
+  // navigation state so it doesn't reopen again on a later visit.
+  useEffect(() => {
+    const openEventId = locationState?.openEventId
+    if (!openEventId || !events) return
+    const match = events.find((e) => e.id === openEventId)
+    if (match) setSelected(match)
+    navigate(location.pathname, { replace: true, state: {} })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, locationState?.openEventId])
+
   async function refreshCount(eventId: string) {
     const { data: count } = await supabase.rpc('event_registration_count', { p_event_id: eventId })
     setCounts((c) => ({ ...c, [eventId]: (count as number) ?? c[eventId] }))
+  }
+
+  // Event details/registration is an authenticated action (register_for_event
+  // requires auth.uid()) — a logged-out visitor gets sent to Login instead
+  // of a modal that would just fail. `from`/`eventId` are read back by
+  // Login.tsx to return here and reopen this exact event afterward.
+  function handleOpen(event: EventListing) {
+    if (!session) {
+      navigate('/login', { state: { from: '/events', eventId: event.id } })
+      return
+    }
+    setSelected(event)
   }
 
   return (
@@ -86,7 +117,7 @@ export default function Events() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {events.map((event, i) => (
               <Reveal key={event.id} delay={Math.min(i, 6) * 60}>
-                <EventCard event={event} registeredCount={event.capacity !== null ? counts[event.id] ?? null : null} onOpen={() => setSelected(event)} />
+                <EventCard event={event} registeredCount={event.capacity !== null ? counts[event.id] ?? null : null} onOpen={() => handleOpen(event)} />
               </Reveal>
             ))}
           </div>
