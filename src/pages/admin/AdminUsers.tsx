@@ -49,7 +49,7 @@ export default function AdminUsers({ showToast, isStaffAdmin }: { showToast: (ms
 
     if (search.trim()) {
       const q = search.trim().replace(/[%_,()]/g, (c) => `\\${c}`)
-      query = query.or(`username.ilike.%${q}%,full_name.ilike.%${q}%,email.ilike.%${q}%`)
+      query = query.or(`username.ilike.%${q}%,email.ilike.%${q}%`)
     }
 
     if (roleFilter === 'suspended') {
@@ -193,7 +193,7 @@ export default function AdminUsers({ showToast, isStaffAdmin }: { showToast: (ms
     let query = supabase.from('profiles').select('*')
     if (search.trim()) {
       const q = search.trim().replace(/[%_,()]/g, (c) => `\\${c}`)
-      query = query.or(`username.ilike.%${q}%,full_name.ilike.%${q}%,email.ilike.%${q}%`)
+      query = query.or(`username.ilike.%${q}%,email.ilike.%${q}%`)
     }
     const { data, error } = await query
     if (error) { showToast(error.message); return }

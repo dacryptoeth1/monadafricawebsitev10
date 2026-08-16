@@ -5,9 +5,7 @@ import Reveal from '../components/Reveal'
 import SocialAuthButtons from '../components/SocialAuthButtons'
 import CountrySelect from '../components/CountrySelect'
 import MonadMark from '../components/MonadMark'
-import type { UserRole } from '../types'
-
-const ROLES: UserRole[] = ['Developer', 'Designer', 'Content Creator', 'Community Member', 'Founder', 'Student']
+import { USER_ROLES, normalizeUserRole } from '../lib/userRole'
 
 export default function Signup() {
   const { signUp } = useAuth()
@@ -37,13 +35,25 @@ export default function Signup() {
       return
     }
 
+    // profiles.role has a CHECK constraint (profiles_role_check) that
+    // only accepts the exact USER_ROLES strings, or NULL — never an
+    // empty/unrecognized value. The <select> below is built from
+    // USER_ROLES so this should always normalize cleanly; if it
+    // somehow doesn't, block submission here rather than let the
+    // signup trigger insert an invalid role and fail server-side.
+    const normalizedRole = normalizeUserRole(String(data.get('role') || ''))
+    if (!normalizedRole) {
+      setError('Please select a valid role.')
+      return
+    }
+
     setLoading(true)
     try {
       await signUp(email, password, {
         full_name: String(data.get('full_name') || ''),
         username: String(data.get('username') || ''),
         country: countryName,
-        role: String(data.get('role') || ''),
+        role: normalizedRole,
         referredByCode: refCode,
       })
       setDone(true)
@@ -103,7 +113,7 @@ export default function Signup() {
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Role</label>
               <select name="role" required className="input" defaultValue="Developer">
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                {USER_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
 

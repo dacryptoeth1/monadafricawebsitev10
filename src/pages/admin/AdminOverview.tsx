@@ -18,7 +18,6 @@ const CHART_SAMPLE_LIMIT = 5000
 
 interface TopUser {
   id: string
-  full_name: string | null
   username: string | null
   total_referrals?: number
   last_seen?: string | null
@@ -81,8 +80,8 @@ export default function AdminOverview({ showToast }: { showToast: (msg: string) 
         supabase.from('profiles').select('country, region').order('created_at', { ascending: false }).limit(CHART_SAMPLE_LIMIT),
         supabase.from('profiles').select('created_at').order('created_at', { ascending: false }).limit(CHART_SAMPLE_LIMIT),
         supabase.from('credit_transactions').select('amount, created_at').lt('amount', 0).gte('created_at', fourteenDaysAgo),
-        supabase.from('profiles').select('id, full_name, username, total_referrals').order('total_referrals', { ascending: false }).limit(5),
-        supabase.from('profiles').select('id, full_name, username, last_seen').not('last_seen', 'is', null).order('last_seen', { ascending: false }).limit(5),
+        supabase.from('profiles').select('id, username, total_referrals').order('total_referrals', { ascending: false }).limit(5),
+        supabase.from('profiles').select('id, username, last_seen').not('last_seen', 'is', null).order('last_seen', { ascending: false }).limit(5),
         supabase.from('site_settings').select('*').eq('id', 1).maybeSingle(),
       ])
 
@@ -264,8 +263,8 @@ export default function AdminOverview({ showToast }: { showToast: (msg: string) 
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <ListCard title="Top Contributors (by referrals)" items={topContributors.map((p) => ({ label: p.full_name || p.username || 'Unnamed', value: `${p.total_referrals ?? 0} referrals` }))} />
-        <ListCard title="Most Active Users" items={mostActive.map((p) => ({ label: p.full_name || p.username || 'Unnamed', value: p.last_seen ? timeAgo(p.last_seen) : '—' }))} />
+        <ListCard title="Top Contributors (by referrals)" items={topContributors.map((p) => ({ label: p.username || 'Unnamed', value: `${p.total_referrals ?? 0} referrals` }))} />
+        <ListCard title="Most Active Users" items={mostActive.map((p) => ({ label: p.username || 'Unnamed', value: p.last_seen ? timeAgo(p.last_seen) : '—' }))} />
       </div>
     </div>
   )

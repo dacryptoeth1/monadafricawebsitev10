@@ -118,7 +118,15 @@ export default function EventRegistrationModal({
     setSubmitting(false)
 
     if (rpcError) {
-      setError(friendlyRegistrationError(rpcError.message))
+      // The friendly message below only recognizes register_for_event's
+      // own intentional VALIDATION:/DUPLICATE_EMAIL:/etc. prefixes —
+      // anything else (a raw Postgres/schema error) silently collapses
+      // into the generic fallback message with no trace of what it
+      // actually was. Log the real error so it's inspectable when
+      // debugging a registration failure that isn't one of those known
+      // cases.
+      console.error('[Event registration] register_for_event failed:', rpcError)
+      setError(friendlyRegistrationError(rpcError.message, (rpcError as any).code))
       return
     }
     const row = Array.isArray(rows) ? rows[0] : rows
@@ -264,12 +272,17 @@ function SuccessView({
   )
 }
 
-function friendlyRegistrationError(message: string): string {
+function friendlyRegistrationError(message: string, code?: string): string {
   if (message.startsWith('DUPLICATE_EMAIL')) return 'This email is already registered for this event — check your inbox for your invite code.'
   if (message.startsWith('CAPACITY_FULL')) return 'This event just reached capacity.'
   if (message.startsWith('CLOSED')) return 'Registration is closed for this event.'
   if (message.startsWith('DEADLINE_PASSED')) return 'The registration deadline for this event has passed.'
   if (message.startsWith('VALIDATION:')) return message.replace('VALIDATION: ', '')
   if (message.startsWith('NOT_FOUND')) return 'This event could not be found.'
-  return 'Something went wrong submitting your registration — please try again.'
+  // TEMPORARY diagnostic fallback — surfaces the real Supabase/Postgres
+  // error instead of a generic message, so a failure that isn't one of
+  // register_for_event's own intentional cases above is visible without
+  // needing DevTools. Revert to a plain generic message once the root
+  // cause behind this fallback firing is found and fixed.
+  return `Something went wrong submitting your registration: ${message}${code ? ` (code: ${code})` : ''}`
 }

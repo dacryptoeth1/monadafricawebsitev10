@@ -8,7 +8,7 @@ interface LedgerRow {
   amount: number
   reason: string
   created_at: string
-  profiles: { username: string | null; full_name: string | null } | null
+  profiles: { username: string | null } | null
 }
 
 export default function AdminCredits({ showToast }: { showToast: (msg: string) => void }) {
@@ -38,7 +38,7 @@ export default function AdminCredits({ showToast }: { showToast: (msg: string) =
     const from = p * PAGE_SIZE
     const { data, error } = await supabase
       .from('credit_transactions')
-      .select('id, amount, reason, created_at, profiles(username, full_name)')
+      .select('id, amount, reason, created_at, profiles(username)')
       .order('created_at', { ascending: false })
       .range(from, from + PAGE_SIZE - 1)
 
@@ -85,7 +85,7 @@ export default function AdminCredits({ showToast }: { showToast: (msg: string) =
             {rows.map((r) => (
               <div key={r.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm">
                 <div className="min-w-0">
-                  <span className="font-medium">{r.profiles?.full_name || r.profiles?.username || 'Unknown user'}</span>
+                  <span className="font-medium">{r.profiles?.username || 'Unknown user'}</span>
                   <span className="text-white/40"> · {r.reason.replace(/_/g, ' ')} · {new Date(r.created_at).toLocaleDateString()}</span>
                 </div>
                 <span className={`font-mono shrink-0 ml-3 ${r.amount >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>

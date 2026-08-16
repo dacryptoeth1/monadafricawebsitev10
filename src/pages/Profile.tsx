@@ -3,13 +3,13 @@ import { UploadCloud } from 'lucide-react'
 import { Country } from 'country-state-city'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import type { Badge, UserBadge, UserRole } from '../types'
+import type { Badge, UserBadge } from '../types'
+import { USER_ROLES, normalizeUserRole } from '../lib/userRole'
 import Reveal from '../components/Reveal'
 import CountrySelect from '../components/CountrySelect'
 import RegionSelect from '../components/RegionSelect'
 import ProfileStatsHeader from '../components/ProfileStatsHeader'
 
-const ROLES: UserRole[] = ['Developer', 'Designer', 'Content Creator', 'Community Member', 'Founder', 'Student']
 const WALLET_RE = /^0x[a-fA-F0-9]{40}$/
 
 function findIsoByName(name: string | null): string {
@@ -73,6 +73,17 @@ export default function Profile() {
       return
     }
 
+    // profiles.role has a CHECK constraint (profiles_role_check) that
+    // only accepts the exact USER_ROLES strings, or NULL — never an
+    // empty string or a differently-cased value. The <select> below is
+    // built from USER_ROLES so this should always normalize cleanly;
+    // if it somehow doesn't (a stale bundle, a legacy value, dev
+    // tooling tampering with the form), roleUpdate stays an empty
+    // object below and the field is left out of the update entirely —
+    // the existing saved role is preserved rather than risking a
+    // constraint violation or overwriting it with something invalid.
+    const normalizedRole = normalizeUserRole(String(data.get('role') || ''))
+
     setSaving(true)
     try {
       let avatarUrl = profile!.avatar_url
@@ -84,25 +95,36 @@ export default function Profile() {
         avatarUrl = pub.publicUrl
       }
 
+      const roleUpdate = normalizedRole ? { role: normalizedRole } : {}
+
+      const profileUpdatePayload = {
+        full_name: String(data.get('full_name') || ''),
+        username,
+        country: countryName,
+        region,
+        ...roleUpdate,
+        bio: String(data.get('bio') || ''),
+        twitter: String(data.get('twitter') || ''),
+        telegram: String(data.get('telegram') || ''),
+        discord: String(data.get('discord') || ''),
+        website: String(data.get('website') || ''),
+        github: String(data.get('github') || ''),
+        wallet_address: wallet,
+        wallet_provider: null,
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Diagnostic trace for profiles_role_check failures — logs the
+      // exact role value about to be sent (or confirms it's being
+      // omitted, preserving whatever role is already saved) right
+      // before the request goes out. Check the browser console when
+      // reproducing a role-related save error.
+      console.log('[Profile save] role field from form:', JSON.stringify(String(data.get('role') || '')), '→ normalized:', normalizedRole, '→ sending to Supabase:', 'role' in profileUpdatePayload ? JSON.stringify(profileUpdatePayload.role) : '(omitted — existing role preserved)')
+
       const { error: updateErr } = await supabase
         .from('profiles')
-        .update({
-          full_name: String(data.get('full_name') || ''),
-          username,
-          country: countryName,
-          region,
-          role: String(data.get('role') || ''),
-          bio: String(data.get('bio') || ''),
-          twitter: String(data.get('twitter') || ''),
-          telegram: String(data.get('telegram') || ''),
-          discord: String(data.get('discord') || ''),
-          website: String(data.get('website') || ''),
-          github: String(data.get('github') || ''),
-          wallet_address: wallet,
-          wallet_provider: null,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
+        .update(profileUpdatePayload)
         .eq('id', profile!.id)
 
       if (updateErr) {
@@ -192,7 +214,7 @@ export default function Profile() {
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Role</label>
               <select name="role" defaultValue={profile.role ?? 'Developer'} className="input">
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                {USER_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
 

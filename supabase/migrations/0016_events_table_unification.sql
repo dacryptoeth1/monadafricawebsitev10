@@ -106,6 +106,7 @@ create table if not exists public.event_registrations (
 );
 
 alter table public.event_registrations
+  add column if not exists event_id uuid,
   add column if not exists full_name text,
   add column if not exists email text,
   add column if not exists country text,
@@ -143,8 +144,25 @@ begin
 end $$;
 
 create unique index if not exists idx_event_registrations_invite_code on public.event_registrations (invite_code);
-create unique index if not exists idx_event_registrations_event_email on public.event_registrations (event_id, lower(email));
-create index if not exists idx_event_registrations_event on public.event_registrations (event_id);
+
+-- Guarded rather than a bare CREATE INDEX: event_id is added above via
+-- ADD COLUMN IF NOT EXISTS, so it should always be present by this
+-- point, but these two indexes are the only things that actually
+-- require it — checking first means a column-add that silently didn't
+-- take (a permissions issue, etc.) reports clearly via RAISE NOTICE
+-- instead of aborting the rest of this migration.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'event_registrations' and column_name = 'event_id'
+  ) then
+    create unique index if not exists idx_event_registrations_event_email on public.event_registrations (event_id, lower(email));
+    create index if not exists idx_event_registrations_event on public.event_registrations (event_id);
+  else
+    raise notice 'Skipped idx_event_registrations_event_email / idx_event_registrations_event: event_registrations.event_id does not exist.';
+  end if;
+end $$;
 
 drop trigger if exists trg_event_registrations_updated_at on public.event_registrations;
 create trigger trg_event_registrations_updated_at before update on public.event_registrations
