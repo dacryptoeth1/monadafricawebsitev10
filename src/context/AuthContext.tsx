@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         // Always the current deployed origin — never hardcoded to
         // localhost. On production this resolves to
-        // https://monadafrica.netlify.app automatically. For the actual
+        // https://monadafricans.netlify.app automatically. For the actual
         // email to land on that domain (not a Supabase default), the
         // project's Auth → URL Configuration must also have this exact
         // origin set as the Site URL and listed under Redirect URLs —

@@ -1,7 +1,7 @@
 # Monad Africa
 
 Vite + React + TypeScript + Tailwind + Framer Motion + Lucide React + Recharts, backed by
-Supabase (Auth, Database, Storage, RLS). Production: https://monadafrica.netlify.app
+Supabase (Auth, Database, Storage, RLS). Production: https://monadafricans.netlify.app
 
 ## Setup order
 
@@ -47,7 +47,7 @@ token, so those stay manual permanently — labeled as such on the Community pag
 
 ### 3. Auth redirects / Google / Apple — same as last round, still required
 - Supabase Dashboard → Authentication → URL Configuration: Site URL and Redirect URLs set
-  to `https://monadafrica.netlify.app` (+ `/login`, `/reset-password`, `/dashboard`).
+  to `https://monadafricans.netlify.app` (+ `/login`, `/reset-password`, `/dashboard`).
 - Supabase Dashboard → Authentication → Providers: enable Google and Apple with their real
   OAuth credentials (Google Cloud Console / Apple Developer account) — the buttons and code
   are already built, they just show a graceful "not available yet" message until this is done.

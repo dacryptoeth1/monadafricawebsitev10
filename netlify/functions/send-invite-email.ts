@@ -9,7 +9,7 @@
 //   RESEND_API_KEY
 //   RESEND_FROM_EMAIL          e.g. "Monad Africa <events@yourdomain.com>"
 // Optional:
-//   SITE_URL                   defaults to https://monadafrica.netlify.app
+//   SITE_URL                   defaults to https://monadafricans.netlify.app
 //
 // Auth model (see supabase/migrations/0016_events_table_unification.sql
 // for the matching RLS/RPC side of this — events + event_registrations,
@@ -30,7 +30,7 @@ interface RequestBody {
   invite_code?: string
 }
 
-const SITE_URL = process.env.SITE_URL || 'https://monadafrica.netlify.app'
+const SITE_URL = process.env.SITE_URL || 'https://monadafricans.netlify.app'
 
 function json(statusCode: number, body: Record<string, unknown>) {
   return { statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
