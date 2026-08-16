@@ -46,45 +46,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    const [{ data: p }, { data: a }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', s.user.id).maybeSingle(),
-      supabase.from('admins').select('role').eq('id', s.user.id).maybeSingle(),
-    ])
-    let prof = (p as Profile) ?? null
-    // Safety net: the signup trigger should always create a profile row,
-    // but if it somehow didn't (or this is a pre-existing account from
-    // before the trigger existed), self-heal by creating one now rather
-    // than leaving credits/XP/etc. blank forever.
-    if (!prof) {
-      const { data: healed } = await supabase.rpc('ensure_profile')
-      prof = (healed as Profile) ?? null
+    // Everything below is wrapped in try/finally: this function is
+    // called (unawaited) from onAuthStateChange right after every
+    // login. Previously, if any query here threw for any reason — a
+    // network blip, an RLS issue, anything — the function would throw
+    // before ever reaching setLoading(false), leaving `loading` stuck
+    // at true forever. RequireAuth checks `loading` before deciding to
+    // render or redirect, so a stuck `loading` made gated routes show
+    // "Loading…" indefinitely right after a successful sign-in —
+    // indistinguishable from a broken/looping login. The session
+    // itself is still valid even if profile/admin data fails to load,
+    // so errors here are logged and the rest of the app is allowed to
+    // proceed rather than hang.
+    try {
+      const [{ data: p, error: profileErr }, { data: a, error: adminErr }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', s.user.id).maybeSingle(),
+        supabase.from('admins').select('role').eq('id', s.user.id).maybeSingle(),
+      ])
+      if (profileErr) console.error('[AuthContext] Failed to load profile:', profileErr)
+      if (adminErr) console.error('[AuthContext] Failed to load admin role:', adminErr)
+
+      let prof = (p as Profile) ?? null
+      // Safety net: the signup trigger should always create a profile row,
+      // but if it somehow didn't (or this is a pre-existing account from
+      // before the trigger existed), self-heal by creating one now rather
+      // than leaving credits/XP/etc. blank forever.
+      if (!prof) {
+        const { data: healed, error: healErr } = await supabase.rpc('ensure_profile')
+        if (healErr) console.error('[AuthContext] ensure_profile failed:', healErr)
+        prof = (healed as Profile) ?? null
+      }
+      // Credits self-heal: the column is meant to be NOT NULL DEFAULT 3,
+      // but if this row somehow has a null/undefined credits value (e.g.
+      // predates that constraint), default it to 3 in the UI immediately
+      // and persist the fix back to Supabase — never leave the Credits
+      // card blank, and never silently rely on a client-only default.
+      if (prof && (prof.credits === null || prof.credits === undefined)) {
+        prof = { ...prof, credits: 3 }
+        supabase.from('profiles').update({ credits: 3 }).eq('id', prof.id).then(() => {})
+      }
+      // Same self-heal for XP — never blank, NULL, or undefined either.
+      if (prof && (prof.xp === null || prof.xp === undefined)) {
+        prof = { ...prof, xp: 0 }
+        supabase.from('profiles').update({ xp: 0 }).eq('id', prof.id).then(() => {})
+      }
+      setProfile(prof)
+      setAdminRole((a?.role as AdminRole) ?? null)
+      // Banned users are signed out immediately — is_banned already blocks
+      // writes at the RLS layer, this just also boots them from the
+      // session so they can't keep browsing as if nothing happened.
+      if (prof?.is_banned) {
+        setBanned(true)
+        await supabase.auth.signOut()
+      } else {
+        setBanned(false)
+      }
+    } catch (err) {
+      console.error('[AuthContext] loadProfileAndAdmin failed:', err)
+    } finally {
+      setLoading(false)
     }
-    // Credits self-heal: the column is meant to be NOT NULL DEFAULT 3,
-    // but if this row somehow has a null/undefined credits value (e.g.
-    // predates that constraint), default it to 3 in the UI immediately
-    // and persist the fix back to Supabase — never leave the Credits
-    // card blank, and never silently rely on a client-only default.
-    if (prof && (prof.credits === null || prof.credits === undefined)) {
-      prof = { ...prof, credits: 3 }
-      supabase.from('profiles').update({ credits: 3 }).eq('id', prof.id).then(() => {})
-    }
-    // Same self-heal for XP — never blank, NULL, or undefined either.
-    if (prof && (prof.xp === null || prof.xp === undefined)) {
-      prof = { ...prof, xp: 0 }
-      supabase.from('profiles').update({ xp: 0 }).eq('id', prof.id).then(() => {})
-    }
-    setProfile(prof)
-    setAdminRole((a?.role as AdminRole) ?? null)
-    // Banned users are signed out immediately — is_banned already blocks
-    // writes at the RLS layer, this just also boots them from the
-    // session so they can't keep browsing as if nothing happened.
-    if (prof?.is_banned) {
-      setBanned(true)
-      await supabase.auth.signOut()
-    } else {
-      setBanned(false)
-    }
-    setLoading(false)
   }
 
   useEffect(() => {
