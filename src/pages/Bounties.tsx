@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search, Target } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Bounty, BountyCategory, SiteSettings } from '../types'
@@ -30,18 +30,26 @@ export default function Bounties() {
     })
   }, [])
 
-  const filtered = bounties
-    ?.filter((b) => active === 'All' || b.category === active)
-    .filter((b) => {
-      if (!search.trim()) return true
-      const q = search.toLowerCase()
-      return (
-        b.title.toLowerCase().includes(q) ||
-        b.project_name.toLowerCase().includes(q) ||
-        (b.skills_needed || '').toLowerCase().includes(q) ||
-        b.description.toLowerCase().includes(q)
-      )
-    }) ?? null
+  // Memoized so this list is only recomputed when its actual inputs
+  // change, not on every unrelated re-render of the page — combined
+  // with BountyCard now being memo()'d, typing in the search box no
+  // longer re-renders every card in the grid on every keystroke.
+  const filtered = useMemo(
+    () =>
+      bounties
+        ?.filter((b) => active === 'All' || b.category === active)
+        .filter((b) => {
+          if (!search.trim()) return true
+          const q = search.toLowerCase()
+          return (
+            b.title.toLowerCase().includes(q) ||
+            b.project_name.toLowerCase().includes(q) ||
+            (b.skills_needed || '').toLowerCase().includes(q) ||
+            b.description.toLowerCase().includes(q)
+          )
+        }) ?? null,
+    [bounties, active, search]
+  )
 
   return (
     <section className="pt-36 pb-28 min-h-screen">

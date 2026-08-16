@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { memo, useState, type FormEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ReportButton from './ReportButton'
 import type { Bounty } from '../types'
+import { getErrorMessage, logError } from '../lib/errors'
 
 const difficultyStyles: Record<Bounty['difficulty'], string> = {
   easy: 'text-emerald-300 border-emerald-300/30 bg-emerald-300/10',
@@ -13,7 +14,14 @@ const difficultyStyles: Record<Bounty['difficulty'], string> = {
   hard: 'text-rose-300 border-rose-300/30 bg-rose-300/10',
 }
 
-export default function BountyCard({ bounty }: { bounty: Bounty }) {
+// Wrapped in memo: the Bounties page re-renders on every keystroke in
+// its search box (filtering a potentially multi-dozen-card grid), and
+// without this every BountyCard in the grid — including ones whose own
+// `bounty` prop didn't change — re-ran its full render + framer-motion
+// tree on every character typed. `bounty` is a stable object reference
+// across re-renders (Array.filter() doesn't clone items), so memo's
+// default shallow-prop comparison correctly skips unaffected cards.
+export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
   const [open, setOpen] = useState(false)
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -72,7 +80,7 @@ export default function BountyCard({ bounty }: { bounty: Bounty }) {
       <AnimatePresence>{open && <ApplyModal bounty={bounty} onClose={() => setOpen(false)} />}</AnimatePresence>
     </>
   )
-}
+})
 
 function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }) {
   const { profile, refreshProfile } = useAuth()
@@ -102,8 +110,9 @@ function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }
       if (err) throw err
       await refreshProfile()
       setDone(true)
-    } catch (err: any) {
-      setError(err?.message || 'Something went wrong submitting your application — please try again.')
+    } catch (err) {
+      logError('[BountyCard] apply_to_bounty failed:', err)
+      setError(getErrorMessage(err, 'Something went wrong submitting your application — please try again.'))
     } finally {
       setSubmitting(false)
     }

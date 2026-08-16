@@ -70,6 +70,17 @@ export default function EventRegistrationModal({
   // commits, so checking React state alone isn't reliable here.
   const [resending, setResending] = useState(false)
   const resendingRef = useRef(false)
+  // Same synchronous-guard pattern as resendingRef below: `submitting`
+  // state alone isn't enough to stop a fast double-click on the
+  // Register button, because React can batch/delay the re-render that
+  // disables it — two clicks fired before either state update commits
+  // could both reach handleSubmit. register_for_event() is already
+  // idempotent server-side (a second call for the same user+event
+  // returns the existing registration instead of erroring — see
+  // is_new below), so this ref is a belt-and-suspenders guard against
+  // firing a wasted duplicate network request, not the actual
+  // duplicate-prevention guarantee.
+  const submittingRef = useRef(false)
 
   const info = getRegistrationStatus(event, registeredCount)
   const startTime = formatEventTime(event.start_time)
@@ -119,6 +130,7 @@ export default function EventRegistrationModal({
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (submittingRef.current) return
     setError(null)
 
     const data = new FormData(e.currentTarget)
@@ -132,6 +144,7 @@ export default function EventRegistrationModal({
     if (!email || !EMAIL_RE.test(email)) { setError('Enter a valid email address.'); return }
     if (!countryName) { setError('Select your country.'); return }
 
+    submittingRef.current = true
     setSubmitting(true)
     const { data: rows, error: rpcError } = await supabase.rpc('register_for_event', {
       p_event_id: event.id,
@@ -142,6 +155,7 @@ export default function EventRegistrationModal({
       p_phone: phone || null,
       p_wallet_address: walletAddress || null,
     })
+    submittingRef.current = false
     setSubmitting(false)
 
     if (rpcError) {

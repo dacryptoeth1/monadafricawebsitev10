@@ -9,6 +9,7 @@ import Reveal from '../components/Reveal'
 import CountrySelect from '../components/CountrySelect'
 import RegionSelect from '../components/RegionSelect'
 import ProfileStatsHeader from '../components/ProfileStatsHeader'
+import { getErrorMessage, logError } from '../lib/errors'
 
 const WALLET_RE = /^0x[a-fA-F0-9]{40}$/
 
@@ -163,8 +164,9 @@ export default function Profile() {
       await refreshProfile()
       setSaved(true)
       setTimeout(() => setSaved(false), 2200)
-    } catch (err: any) {
-      setError(err?.message || 'Something went wrong saving your profile.')
+    } catch (err) {
+      logError('[Profile] save failed:', err)
+      setError(getErrorMessage(err, 'Something went wrong saving your profile.'))
     } finally {
       setSaving(false)
     }

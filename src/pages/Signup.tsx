@@ -6,6 +6,7 @@ import PasswordField from '../components/PasswordField'
 import CountrySelect from '../components/CountrySelect'
 import MonadMark from '../components/MonadMark'
 import { USER_ROLES, normalizeUserRole } from '../lib/userRole'
+import { getErrorMessage, logError } from '../lib/errors'
 
 export default function Signup() {
   const { signUp } = useAuth()
@@ -57,8 +58,9 @@ export default function Signup() {
         referredByCode: refCode,
       })
       setDone(true)
-    } catch (err: any) {
-      setError(err?.message || 'Something went wrong creating your account.')
+    } catch (err) {
+      logError('[Signup] signUp failed:', err)
+      setError(getErrorMessage(err, 'Something went wrong creating your account. Please try again in a moment.'))
     } finally {
       setLoading(false)
     }
