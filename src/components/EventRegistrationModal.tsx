@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { CalendarDays, Check, Copy, ExternalLink, MapPin, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -12,6 +12,7 @@ interface StoredRegistration {
   inviteCode: string
   fullName: string
   emailSent: boolean
+  isNew: boolean
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -24,8 +25,8 @@ function storageKey(eventId: string) {
 // session" marker. Session-scoped (not localStorage) is intentional —
 // it survives a refresh but not a new visit, and it is purely a UX
 // convenience: the real duplicate-prevention guarantee is server-side
-// (event_id + email unique index), this just avoids re-showing a blank
-// form to someone who already has a code.
+// (event_id + user_id, enforced inside register_for_event() and by a
+// unique index), this just avoids re-hitting the RPC on every refresh.
 function readStored(eventId: string): StoredRegistration | null {
   try {
     const raw = sessionStorage.getItem(storageKey(eventId))
@@ -62,6 +63,13 @@ export default function EventRegistrationModal({
   const [countryIso, setCountryIso] = useState('')
   const [countryName, setCountryName] = useState('')
   const [copied, setCopied] = useState(false)
+  // Resend-specific in-flight guard. A ref (not just state) because it
+  // must block a second click synchronously, before React has had a
+  // chance to re-render and disable the button — two clicks dispatched
+  // in quick succession can both run before either state update
+  // commits, so checking React state alone isn't reliable here.
+  const [resending, setResending] = useState(false)
+  const resendingRef = useRef(false)
 
   const info = getRegistrationStatus(event, registeredCount)
   const startTime = formatEventTime(event.start_time)
@@ -83,11 +91,30 @@ export default function EventRegistrationModal({
   }, [result?.registrationId])
 
   async function handleResend() {
-    if (!result) return
+    // Bail out immediately (synchronously) if a resend is already in
+    // flight — this is what actually stops rapid double-clicks from
+    // firing two overlapping requests, whose responses could otherwise
+    // arrive out of order and leave the status flickering between
+    // "sent" and "failed" depending on which one resolved last.
+    if (!result || resendingRef.current) return
+    resendingRef.current = true
+    setResending(true)
     setEmailStatus('sending')
-    const { ok } = await sendInviteEmail({ registrationId: result.registrationId, inviteCode: result.inviteCode })
-    setEmailStatus(ok ? 'sent' : 'failed')
-    writeStored(event.id, { ...result, emailSent: ok })
+    try {
+      const { ok } = await sendInviteEmail({ registrationId: result.registrationId, inviteCode: result.inviteCode })
+      setEmailStatus(ok ? 'sent' : 'failed')
+      writeStored(event.id, { ...result, emailSent: ok })
+    } catch (err) {
+      // sendInviteEmail already catches its own errors and resolves
+      // with { ok: false } — this catch is a second safety net so an
+      // unexpected throw (e.g. writeStored failing) can never leave the
+      // UI stuck on "Sending…" forever.
+      console.error('[EventRegistrationModal] Resend failed unexpectedly:', err)
+      setEmailStatus('failed')
+    } finally {
+      resendingRef.current = false
+      setResending(false)
+    }
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -135,11 +162,16 @@ export default function EventRegistrationModal({
       return
     }
 
+    // is_new = false means this account already had a registration for
+    // this event — register_for_event() returns that existing row
+    // (with its real invite code) instead of erroring, so we can always
+    // show/resend the code that actually exists rather than a dead end.
     const stored: StoredRegistration = {
       registrationId: row.registration_id,
       inviteCode: row.invite_code,
       fullName,
       emailSent: false,
+      isNew: row.is_new !== false,
     }
     writeStored(event.id, stored)
     setResult(stored)
@@ -169,6 +201,7 @@ export default function EventRegistrationModal({
             event={event}
             result={result}
             emailStatus={emailStatus}
+            resending={resending}
             onResend={handleResend}
             copied={copied}
             onCopy={() => {
@@ -215,6 +248,7 @@ function SuccessView({
   event,
   result,
   emailStatus,
+  resending,
   onResend,
   copied,
   onCopy,
@@ -222,6 +256,7 @@ function SuccessView({
   event: EventListing
   result: StoredRegistration
   emailStatus: 'idle' | 'sending' | 'sent' | 'failed'
+  resending: boolean
   onResend: () => void
   copied: boolean
   onCopy: () => void
@@ -231,9 +266,13 @@ function SuccessView({
       <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center">
         <Check size={20} className="text-emerald-300" />
       </div>
-      <h3 className="font-display font-semibold text-xl mb-1">Registration confirmed!</h3>
+      <h3 className="font-display font-semibold text-xl mb-1">{result.isNew ? 'Registration confirmed!' : "You're already registered"}</h3>
       <p className="text-white/55 text-sm mb-6">
-        Your registration for <span className="text-white">{event.title}</span> is confirmed.
+        {result.isNew ? (
+          <>Your registration for <span className="text-white">{event.title}</span> is confirmed.</>
+        ) : (
+          <>You already registered for <span className="text-white">{event.title}</span> — here's your invite code again.</>
+        )}
       </p>
 
       <div className="text-left rounded-2xl border border-purple/30 bg-purple/5 p-5 mb-5">
@@ -256,24 +295,43 @@ function SuccessView({
         )}
       </div>
 
-      {emailStatus === 'failed' ? (
+      {emailStatus === 'failed' || resending ? (
+        // Kept as one stable block for both "failed" and "actively
+        // resending" — resending only ever transitions out of this
+        // block (to "sent" or back to "failed"), it never swaps to a
+        // different element mid-click, so there's no layout jump for
+        // the button to get lost in during a click.
         <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 mb-2 text-xs text-amber-200 flex flex-col gap-2">
-          <span>We couldn't send your confirmation email, but your registration and invite code are safely saved.</span>
-          <button onClick={onResend} className="self-center px-4 py-2 rounded-full text-xs font-semibold border border-amber-300/40 hover:bg-amber-400/10">
-            Resend email
+          <span>
+            {resending
+              ? 'Sending your confirmation email…'
+              : "We couldn't send your confirmation email, but your registration and invite code are safely saved."}
+          </span>
+          <button
+            onClick={onResend}
+            disabled={resending}
+            aria-busy={resending}
+            className="self-center px-4 py-2 rounded-full text-xs font-semibold border border-amber-300/40 hover:bg-amber-400/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {resending ? 'Sending…' : 'Resend email'}
           </button>
         </div>
       ) : emailStatus === 'sending' ? (
         <p className="text-white/35 text-xs">Sending your confirmation email…</p>
       ) : (
-        <p className="text-white/40 text-xs">We've sent this code to your email. Please keep it safe and present it when you arrive at the event.</p>
+        <p className="text-white/40 text-xs">Confirmation email sent. Please keep your code safe and present it when you arrive at the event.</p>
       )}
     </div>
   )
 }
 
 function friendlyRegistrationError(message: string, code?: string): string {
-  if (message.startsWith('DUPLICATE_EMAIL')) return 'This email is already registered for this event — check your inbox for your invite code.'
+  // DUPLICATE_EMAIL is no longer raised by register_for_event() — an
+  // already-registered account now gets its existing invite code back
+  // as a normal successful return (see handleSubmit), not an error.
+  // This case is kept only in case an older, un-migrated database is
+  // still running the previous version of the function.
+  if (message.startsWith('DUPLICATE_EMAIL')) return "You're already registered for this event — check your inbox for your invite code."
   if (message.startsWith('CAPACITY_FULL')) return 'This event just reached capacity.'
   if (message.startsWith('CLOSED')) return 'Registration is closed for this event.'
   if (message.startsWith('DEADLINE_PASSED')) return 'The registration deadline for this event has passed.'
