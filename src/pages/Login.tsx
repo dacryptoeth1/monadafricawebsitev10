@@ -39,12 +39,20 @@ export default function Login() {
       } else if (message.toLowerCase().includes('invalid login credentials') || message.toLowerCase().includes('invalid email or password')) {
         // Supabase's actual message for a genuinely wrong email/password.
         setError('Invalid email or password.')
+      } else if (message.toLowerCase().includes('failed to fetch') || message.toLowerCase().includes('network')) {
+        // A raw browser fetch failure — the request to Supabase never
+        // completed at all (wrong/unreachable project URL, no network,
+        // or a CORS block). This is never a credentials problem; check
+        // the console.log this module's src/lib/supabase.ts prints on
+        // load ("[supabase] Using project URL: ...") against the
+        // correct project in the Supabase dashboard.
+        setError('Could not reach the authentication server. Check your internet connection — if this keeps happening, the site may be misconfigured (see console for details).')
       } else {
-        // Anything else (network failure, rate limit, project/config
-        // issue, etc.) is a real, different problem — show what
-        // Supabase actually said instead of misreporting it as wrong
-        // credentials, which was the bug reported: correct credentials
-        // producing a false "Invalid email or password".
+        // Anything else (rate limit, project/config issue, etc.) is a
+        // real, different problem — show what Supabase actually said
+        // instead of misreporting it as wrong credentials, which was
+        // the bug reported: correct credentials producing a false
+        // "Invalid email or password".
         setError(message || 'Something went wrong signing in — please try again.')
       }
       return

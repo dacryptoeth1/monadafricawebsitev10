@@ -106,7 +106,7 @@ export default function Events() {
         ) : loadError ? (
           <EmptyState
             Icon={CalendarDays}
-            message={'Couldn’t load events right now.\n\nPlease refresh the page — if this keeps happening, let us know.'}
+            message={`Couldn’t load events right now.\n\n${loadError}\n\nPlease refresh the page — if this keeps happening, let us know.`}
           />
         ) : events.length === 0 ? (
           <EmptyState
