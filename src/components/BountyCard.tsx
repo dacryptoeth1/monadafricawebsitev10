@@ -26,7 +26,10 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
   const { session } = useAuth()
   const navigate = useNavigate()
 
+  const unavailable = bounty.is_closed || bounty.is_deleted || bounty.status !== 'approved'
+
   function handleApplyClick() {
+    if (unavailable) return // belt-and-suspenders — button is already disabled below
     if (!session) {
       navigate('/login', { state: { from: '/bounties' } })
       return
@@ -60,6 +63,9 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
         <div className="flex flex-wrap gap-2">
           <span className={`text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border ${difficultyStyles[bounty.difficulty]}`}>{bounty.difficulty}</span>
           <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/15 text-white/50">{bounty.category}</span>
+          {bounty.is_closed && (
+            <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/20 text-white/50">Closed</span>
+          )}
         </div>
 
         {bounty.skills_needed && (
@@ -71,13 +77,19 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
             <div className="font-mono font-semibold text-gold">{bounty.reward}</div>
             <div className="text-[10px] text-white/35 font-mono mt-0.5">Deadline · {formatDate(bounty.deadline)}</div>
           </div>
-          <button onClick={handleApplyClick} className="text-sm font-semibold text-purple-light hover:text-white transition-colors">
-            Apply →
-          </button>
+          {unavailable ? (
+            <span className="text-sm font-semibold text-white/30 cursor-not-allowed" title="This bounty is no longer accepting applications">
+              Applications closed
+            </span>
+          ) : (
+            <button onClick={handleApplyClick} className="text-sm font-semibold text-purple-light hover:text-white transition-colors">
+              Apply →
+            </button>
+          )}
         </div>
       </motion.div>
 
-      <AnimatePresence>{open && <ApplyModal bounty={bounty} onClose={() => setOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{open && !unavailable && <ApplyModal bounty={bounty} onClose={() => setOpen(false)} />}</AnimatePresence>
     </>
   )
 })

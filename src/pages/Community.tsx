@@ -1,21 +1,13 @@
 import { useEffect, useState } from 'react'
 import { CalendarDays, MessageCircle, Send, Star } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 import { fetchDiscordWidget } from '../lib/discordWidget'
-import type { SiteSettings } from '../types'
-import { defaultSiteSettings } from '../types'
+import { useSiteSettings } from '../hooks/useSiteSettings'
 import Reveal from '../components/Reveal'
 import Counter from '../components/Counter'
 
 export default function Community() {
-  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings)
+  const settings = useSiteSettings()
   const [liveDiscord, setLiveDiscord] = useState<{ members: number; online: number } | null>(null)
-
-  useEffect(() => {
-    supabase.from('site_settings').select('*').eq('id', 1).maybeSingle().then(({ data }) => {
-      if (data) setSettings(data as SiteSettings)
-    })
-  }, [])
 
   useEffect(() => {
     if (!settings.discord_widget_enabled || !settings.discord_guild_id) {

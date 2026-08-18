@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search, Target } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Bounty, BountyCategory, SiteSettings } from '../types'
-import { defaultSiteSettings } from '../types'
+import type { Bounty, BountyCategory } from '../types'
+import { useSiteSettings } from '../hooks/useSiteSettings'
 import BountyCard from '../components/BountyCard'
 import EmptyState from '../components/EmptyState'
 import Reveal from '../components/Reveal'
@@ -13,21 +13,16 @@ export default function Bounties() {
   const [bounties, setBounties] = useState<Bounty[] | null>(null)
   const [active, setActive] = useState<BountyCategory | 'All'>('All')
   const [search, setSearch] = useState('')
-  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings)
+  const settings = useSiteSettings()
 
   useEffect(() => {
     supabase
       .from('bounties')
       .select('*')
       .eq('status', 'approved')
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false })
       .then(({ data }) => setBounties((data as Bounty[]) ?? []))
-  }, [])
-
-  useEffect(() => {
-    supabase.from('site_settings').select('*').eq('id', 1).maybeSingle().then(({ data }) => {
-      if (data) setSettings(data as SiteSettings)
-    })
   }, [])
 
   // Memoized so this list is only recomputed when its actual inputs

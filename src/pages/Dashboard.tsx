@@ -10,7 +10,7 @@ import Reveal from '../components/Reveal'
 import SubmissionModal from '../components/SubmissionModal'
 
 interface AppRow extends Application {
-  bounties: Pick<Bounty, 'title' | 'reward' | 'logo_url' | 'project_name'> | null
+  bounties: Pick<Bounty, 'title' | 'reward' | 'logo_url' | 'project_name' | 'is_closed' | 'is_deleted'> | null
 }
 interface SubRow extends Submission {
   bounties: Pick<Bounty, 'title' | 'logo_url' | 'project_name'> | null
@@ -32,7 +32,7 @@ export default function Dashboard() {
   async function loadAll() {
     if (!profile) return
     const [{ data: apps }, { data: subs }, { data: notifs }, { count: betterCount }, { data: credits }] = await Promise.all([
-      supabase.from('applications').select('*, bounties(title, reward, logo_url, project_name)').eq('user_id', profile.id).order('created_at', { ascending: false }),
+      supabase.from('applications').select('*, bounties(title, reward, logo_url, project_name, is_closed, is_deleted)').eq('user_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('submissions').select('*, bounties(title, logo_url, project_name)').eq('user_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('notifications').select('*').or(`user_id.eq.${profile.id},user_id.is.null`).order('created_at', { ascending: false }).limit(20),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).gt('xp', profile.xp),
@@ -175,7 +175,18 @@ export default function Dashboard() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <StatusPill status={a.status} />
-                      {a.status === 'approved' && !submissions.some((s) => s.application_id === a.id) && (
+                      {/* `a.bounties` comes back null (not an object with
+                          is_deleted: true) when the bounty behind this
+                          application has been soft-deleted — RLS hides the
+                          embedded row entirely rather than exposing it with
+                          a flag. Both that case and the ordinary "closed"
+                          case need to block the Submit button the same way. */}
+                      {(a.bounties?.is_closed || !a.bounties) && (
+                        <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-white/20 text-white/40">
+                          {a.bounties ? 'Closed' : 'Unavailable'}
+                        </span>
+                      )}
+                      {a.status === 'approved' && a.bounties && !a.bounties.is_closed && !submissions.some((s) => s.application_id === a.id) && (
                         <button onClick={() => setSubmitFor(a)} className="text-xs font-semibold text-purple-light hover:text-white">Submit →</button>
                       )}
                     </div>

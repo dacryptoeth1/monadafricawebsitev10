@@ -1,24 +1,36 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { runAdminAction } from '../../lib/adminActions'
+import { logError } from '../../lib/errors'
 import type { Application, Bounty, EcosystemProject, Submission } from '../../types'
 import AdminCollectionPanel from './AdminCollectionPanel'
-import AdminOverview from './AdminOverview'
-import AdminAnalytics from './AdminAnalytics'
-import AdminAnnouncements from './AdminAnnouncements'
-import AdminHomepage from './AdminHomepage'
-import AdminRoles from './AdminRoles'
-import AdminCredits from './AdminCredits'
-import AdminXpConfig from './AdminXpConfig'
-import AdminLeaderboardView from './AdminLeaderboardView'
-import AdminReports from './AdminReports'
-import AdminUsers from './AdminUsers'
-import AdminSettings from './AdminSettings'
-import AdminEventRegistrations from './AdminEventRegistrations'
-import AdminCheckIn from './AdminCheckIn'
+import type { BountyDraft } from './AdminBounties'
 import MonadMark from '../../components/MonadMark'
+
+// Every tab below this point is its own chunk, only fetched the moment
+// an admin actually clicks that tab — this dashboard already only ships
+// to authenticated admins (AdminRoute), but a moderator who only ever
+// touches Submissions/Applications/Users/Reports/Check-In was still
+// downloading every staff-admin tab's code (Analytics + Overview alone
+// pull in recharts) on first load. Splitting per-tab means a
+// moderator's session, and a staff admin who lands on one tab and
+// leaves, now only pays for the code they actually use.
+const AdminBounties = lazy(() => import('./AdminBounties'))
+const AdminOverview = lazy(() => import('./AdminOverview'))
+const AdminAnalytics = lazy(() => import('./AdminAnalytics'))
+const AdminAnnouncements = lazy(() => import('./AdminAnnouncements'))
+const AdminHomepage = lazy(() => import('./AdminHomepage'))
+const AdminRoles = lazy(() => import('./AdminRoles'))
+const AdminCredits = lazy(() => import('./AdminCredits'))
+const AdminXpConfig = lazy(() => import('./AdminXpConfig'))
+const AdminLeaderboardView = lazy(() => import('./AdminLeaderboardView'))
+const AdminReports = lazy(() => import('./AdminReports'))
+const AdminUsers = lazy(() => import('./AdminUsers'))
+const AdminSettings = lazy(() => import('./AdminSettings'))
+const AdminEventRegistrations = lazy(() => import('./AdminEventRegistrations'))
+const AdminCheckIn = lazy(() => import('./AdminCheckIn'))
 
 // Safety cap on the three top-level lists this dashboard loads in full
 // (bounties/applications/submissions back every bounty-lifecycle tab
@@ -30,7 +42,7 @@ import MonadMark from '../../components/MonadMark'
 // direct SQL) — flagged here rather than left as an invisible ceiling.
 const LIST_SAFETY_LIMIT = 1000
 
-type Tab = 'overview' | 'analytics' | 'pending' | 'approved' | 'rejected' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin'
+type Tab = 'overview' | 'analytics' | 'bounties' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin'
 
 const TABS: [Tab, string, boolean][] = [
   // third element: true = staff-admin+ only (hidden from Moderators)
@@ -45,9 +57,7 @@ const TABS: [Tab, string, boolean][] = [
   ['credits', 'Credits', true],
   ['xp', 'XP', true],
   ['leaderboard', 'Leaderboard', true],
-  ['pending', 'Pending Bounties', true],
-  ['approved', 'Approved', true],
-  ['rejected', 'Rejected', true],
+  ['bounties', 'Manage Bounties', true],
   ['projects', 'Ecosystem Projects', true],
   ['resources', 'Resources', true],
   ['videos', 'Videos', true],
@@ -128,31 +138,86 @@ export default function AdminDashboard() {
     showToast(`Marked ${status}`)
   }
 
-  async function removeBounty(id: string) {
+  // --- "Manage Bounties" tab actions ------------------------------------
+  // Soft delete (is_deleted = true) replaced the old hard, cascading
+  // DELETE that used to wipe a bounty's submissions/applications along
+  // with it — the database trigger in migration 0031 stamps
+  // deleted_at/deleted_by automatically, and RLS (also 0031) hides
+  // is_deleted bounties from the public bounty list/search while
+  // keeping them — and every submission/application referencing them —
+  // fully intact and visible to admins.
+  async function softDeleteBounty(b: Bounty) {
     const ok = await runAdminAction(
-      () => supabase.from('bounties').delete().eq('id', id),
+      () => supabase.from('bounties').update({ is_deleted: true }).eq('id', b.id),
       showToast,
-      { confirmMessage: 'Delete this bounty permanently?', successMessage: 'Deleted' },
+      {
+        confirmMessage: `Are you sure you want to delete "${b.title}"? Existing submissions will be preserved.`,
+        successMessage: 'Bounty deleted',
+      },
     )
     if (ok) await loadBounties()
   }
 
-  async function toggleClosed(id: string, closed: boolean) {
+  async function restoreDeletedBounty(b: Bounty) {
     const ok = await runAdminAction(
-      () => supabase.from('bounties').update({ is_closed: closed }).eq('id', id),
+      () => supabase.from('bounties').update({ is_deleted: false }).eq('id', b.id),
       showToast,
-      { successMessage: closed ? 'Bounty closed' : 'Bounty reopened' },
+      { successMessage: 'Bounty restored' },
     )
     if (ok) await loadBounties()
   }
 
-  async function toggleFeatured(id: string, featured: boolean) {
+  async function closeBounty(b: Bounty) {
     const ok = await runAdminAction(
-      () => supabase.from('bounties').update({ is_featured: featured }).eq('id', id),
+      () => supabase.from('bounties').update({ is_closed: true }).eq('id', b.id),
       showToast,
-      { successMessage: featured ? 'Bounty featured' : 'Bounty unfeatured' },
+      {
+        confirmMessage: 'Are you sure you want to close this bounty? Users will no longer be able to submit entries.',
+        successMessage: 'Bounty closed',
+      },
     )
     if (ok) await loadBounties()
+  }
+
+  async function reopenBounty(b: Bounty) {
+    const ok = await runAdminAction(
+      () => supabase.from('bounties').update({ is_closed: false }).eq('id', b.id),
+      showToast,
+      {
+        confirmMessage: 'Reopen this bounty and allow users to participate again?',
+        successMessage: 'Bounty reopened',
+      },
+    )
+    if (ok) await loadBounties()
+  }
+
+  async function toggleFeatured(b: Bounty) {
+    const ok = await runAdminAction(
+      () => supabase.from('bounties').update({ is_featured: !b.is_featured }).eq('id', b.id),
+      showToast,
+      { successMessage: !b.is_featured ? 'Bounty featured' : 'Bounty unfeatured' },
+    )
+    if (ok) await loadBounties()
+  }
+
+  async function createBounty(draft: BountyDraft): Promise<boolean> {
+    // Admin-created bounties start as a draft (status: 'pending', the
+    // same non-public state a project's own host-a-bounty submission
+    // starts in) — "Activate" is a separate, deliberate action so a
+    // bounty is never accidentally live the moment it's created.
+    const { error } = await supabase.from('bounties').insert({ ...draft, status: 'pending' })
+    if (error) { logError('[AdminDashboard] create bounty failed:', error); showToast(error.message); return false }
+    showToast('Bounty created as draft')
+    await loadBounties()
+    return true
+  }
+
+  async function updateBounty(id: string, draft: BountyDraft): Promise<boolean> {
+    const { error } = await supabase.from('bounties').update(draft).eq('id', id)
+    if (error) { logError('[AdminDashboard] update bounty failed:', error); showToast(error.message); return false }
+    showToast('Bounty updated')
+    await loadBounties()
+    return true
   }
 
   async function updateApplicationStatus(app: Application, status: 'approved' | 'rejected') {
@@ -215,9 +280,23 @@ export default function AdminDashboard() {
     URL.revokeObjectURL(url)
   }
 
-  const pending = bounties.filter((b) => b.status === 'pending')
-  const approved = bounties.filter((b) => b.status === 'approved')
-  const rejected = bounties.filter((b) => b.status === 'rejected')
+  const draftBounties = bounties.filter((b) => !b.is_deleted && b.status !== 'approved')
+
+  // Counts submissions/applications per bounty from the lists already
+  // loaded above — the "Manage Bounties" tab needs a per-bounty count
+  // for its Actions column, and both lists are already fully in memory
+  // for the Submissions/Applications tabs, so this reuses them instead
+  // of issuing a separate count query per bounty (or a GROUP BY RPC).
+  const submissionCounts = useMemo(() => {
+    const c: Record<string, number> = {}
+    submissions.forEach((s) => { c[s.bounty_id] = (c[s.bounty_id] ?? 0) + 1 })
+    return c
+  }, [submissions])
+  const applicationCounts = useMemo(() => {
+    const c: Record<string, number> = {}
+    applications.forEach((a) => { c[a.bounty_id] = (c[a.bounty_id] ?? 0) + 1 })
+    return c
+  }, [applications])
 
   return (
     <div className="min-h-screen bg-ink pt-10 pb-24 px-6">
@@ -242,14 +321,16 @@ export default function AdminDashboard() {
               }`}
             >
               {label}
-              {key === 'pending' && pending.length > 0 && ` (${pending.length})`}
+              {key === 'bounties' && draftBounties.length > 0 && ` (${draftBounties.length})`}
             </button>
           ))}
         </div>
 
         {loading ? (
           <div className="text-white/40 text-sm">Loading…</div>
-        ) : tab === 'overview' ? (
+        ) : (
+        <Suspense fallback={<div className="text-white/40 text-sm">Loading…</div>}>
+        {tab === 'overview' ? (
           <AdminOverview showToast={showToast} />
         ) : tab === 'analytics' ? (
           <AdminAnalytics showToast={showToast} />
@@ -368,81 +449,29 @@ export default function AdminDashboard() {
             ]}
           />
         ) : (
-          <BountyList
-            items={tab === 'pending' ? pending : tab === 'approved' ? approved : rejected}
+          <AdminBounties
+            bounties={bounties}
             loadError={bountiesError}
-            tab={tab}
-            onApprove={(id) => updateStatus(id, 'approved')}
-            onReject={(id) => updateStatus(id, 'rejected')}
-            onRestore={(id) => updateStatus(id, 'pending')}
-            onDelete={removeBounty}
-            onClose={(id) => toggleClosed(id, true)}
-            onReopen={(id) => toggleClosed(id, false)}
-            onToggleFeatured={(id, f) => toggleFeatured(id, f)}
+            submissionCounts={submissionCounts}
+            applicationCounts={applicationCounts}
+            showToast={showToast}
+            onCreate={createBounty}
+            onUpdate={updateBounty}
+            onApprove={(b) => updateStatus(b.id, 'approved')}
+            onReject={(b) => updateStatus(b.id, 'rejected')}
+            onRestoreToDraft={(b) => updateStatus(b.id, 'pending')}
+            onClose={closeBounty}
+            onReopen={reopenBounty}
+            onSoftDelete={softDeleteBounty}
+            onRestoreDeleted={restoreDeletedBounty}
+            onToggleFeatured={toggleFeatured}
           />
+        )}
+        </Suspense>
         )}
       </div>
 
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-panel border border-white/15 px-6 py-3 rounded-full text-sm z-50">{toast}</div>}
-    </div>
-  )
-}
-
-function BountyList({
-  items,
-  loadError,
-  tab,
-  onApprove,
-  onReject,
-  onRestore,
-  onDelete,
-  onClose,
-  onReopen,
-  onToggleFeatured,
-}: {
-  items: Bounty[]
-  loadError?: string | null
-  tab: Tab
-  onApprove: (id: string) => void
-  onReject: (id: string) => void
-  onRestore: (id: string) => void
-  onDelete: (id: string) => void
-  onClose: (id: string) => void
-  onReopen: (id: string) => void
-  onToggleFeatured: (id: string, featured: boolean) => void
-}) {
-  if (loadError) return <div className="text-rose-300 text-sm py-10 text-center">Couldn't load bounties: {loadError}</div>
-  if (items.length === 0) return <div className="text-white/40 text-sm py-10 text-center">Nothing here.</div>
-  return (
-    <div className="flex flex-col gap-3">
-      {items.map((b) => (
-        <div key={b.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="font-display font-semibold">
-              {b.title}{' '}
-              <span className={`ml-2 text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${
-                b.status === 'approved' ? 'text-emerald-300 border-emerald-300/30' : b.status === 'rejected' ? 'text-rose-300 border-rose-300/30' : 'text-amber-300 border-amber-300/30'
-              }`}>{b.status}</span>
-              {b.is_closed && <span className="ml-1 text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-white/20 text-white/50">closed</span>}
-              {b.is_featured && <span className="ml-1 text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-gold/40 text-gold">featured</span>}
-            </div>
-            <div className="text-white/40 text-xs mt-1">{b.project_name} · {b.reward} · {b.category} · due {b.deadline} · {b.contact_email}</div>
-          </div>
-          <div className="flex gap-2 flex-none">
-            {tab !== 'approved' && <button onClick={() => onApprove(b.id)} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-400/15 text-emerald-300 border border-emerald-400/30 hover:bg-emerald-400/25">Approve</button>}
-            {tab !== 'rejected' && <button onClick={() => onReject(b.id)} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-400/15 text-rose-300 border border-rose-400/30 hover:bg-rose-400/25">Reject</button>}
-            {tab === 'approved' && !b.is_closed && <button onClick={() => onClose(b.id)} className="px-3 py-1.5 rounded-full text-xs font-semibold border border-white/15 text-white/60 hover:bg-white/5">Close</button>}
-            {tab === 'approved' && b.is_closed && <button onClick={() => onReopen(b.id)} className="px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-400/30 text-emerald-300 hover:bg-emerald-400/10">Reopen</button>}
-            {tab === 'approved' && (
-              <button onClick={() => onToggleFeatured(b.id, !b.is_featured)} className="px-3 py-1.5 rounded-full text-xs font-semibold border border-gold/30 text-gold hover:bg-gold/10">
-                {b.is_featured ? 'Unfeature' : 'Feature'}
-              </button>
-            )}
-            {tab !== 'pending' && <button onClick={() => onRestore(b.id)} className="px-3 py-1.5 rounded-full text-xs font-semibold border border-white/15 text-white/60 hover:bg-white/5">Back to pending</button>}
-            <button onClick={() => onDelete(b.id)} className="px-3 py-1.5 rounded-full text-xs font-semibold border border-white/15 text-white/40 hover:bg-white/5">Delete</button>
-          </div>
-        </div>
-      ))}
     </div>
   )
 }

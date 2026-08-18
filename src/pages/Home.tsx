@@ -4,6 +4,7 @@ import { Boxes, CalendarDays, ChevronLeft, ChevronRight, ExternalLink, Handshake
 import { supabase } from '../lib/supabase'
 import type { Bounty, EcosystemProject, EventItem, NewsItem, Partner, Profile, SiteContent, SiteSettings } from '../types'
 import { defaultSiteSettings } from '../types'
+import { useSiteSettings } from '../hooks/useSiteSettings'
 import Reveal from '../components/Reveal'
 import Counter from '../components/Counter'
 import AfricaNetworkMap from '../components/AfricaNetworkMap'
@@ -27,7 +28,7 @@ const defaultSiteContent: SiteContent = {
 
 export default function Home() {
   const [bounties, setBounties] = useState<Bounty[] | null>(null)
-  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings)
+  const settings = useSiteSettings()
   const [content, setContent] = useState<SiteContent>(defaultSiteContent)
   const [liveBountyCount, setLiveBountyCount] = useState(0)
   const [registeredUsers, setRegisteredUsers] = useState(0)
@@ -39,26 +40,26 @@ export default function Home() {
   const [news, setNews] = useState<NewsItem[] | null>(null)
 
   useEffect(() => {
+    // Two lightweight queries instead of one: the homepage only ever
+    // renders 3 bounty cards, so fetching every approved bounty's full
+    // row (previously unbounded — every column, every row) just to
+    // .slice(0, 3) client-side wasted bandwidth as the bounty board
+    // grows. A separate head:true/count-only query gets the "N live
+    // bounties" number without downloading any row data for it.
     supabase
       .from('bounties')
-      .select('*', { count: 'exact' })
-      .eq('status', 'approved')
-      .order('created_at', { ascending: false })
-      .then(({ data, count }) => {
-        setBounties(((data as Bounty[]) ?? []).slice(0, 3))
-        setLiveBountyCount(count ?? 0)
-      })
-  }, [])
-
-  useEffect(() => {
-    supabase
-      .from('site_settings')
       .select('*')
-      .eq('id', 1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setSettings(data as SiteSettings)
-      })
+      .eq('status', 'approved')
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .limit(3)
+      .then(({ data }) => setBounties((data as Bounty[]) ?? []))
+    supabase
+      .from('bounties')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .eq('is_deleted', false)
+      .then(({ count }) => setLiveBountyCount(count ?? 0))
   }, [])
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function Home() {
 
   useEffect(() => {
     supabase.from('profiles').select('id', { count: 'exact', head: true }).then(({ count }) => setRegisteredUsers(count ?? 0))
-    supabase.from('bounties').select('id', { count: 'exact', head: true }).eq('is_closed', true).then(({ count }) => setCompletedBounties(count ?? 0))
+    supabase.from('bounties').select('id', { count: 'exact', head: true }).eq('is_closed', true).eq('is_deleted', false).then(({ count }) => setCompletedBounties(count ?? 0))
   }, [])
 
   useEffect(() => {

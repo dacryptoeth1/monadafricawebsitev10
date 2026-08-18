@@ -20,10 +20,30 @@ export interface Bounty {
   status: BountyStatus
   is_closed: boolean
   is_featured: boolean
+  is_deleted: boolean
+  deleted_at: string | null
+  deleted_by: string | null
+  closed_at: string | null
+  closed_by: string | null
   created_at: string
 }
 
 export type NewBounty = Omit<Bounty, 'id' | 'status' | 'created_at'>
+
+// The four lifecycle states the Admin "Manage Bounties" panel and the
+// public bounty pages actually reason about — derived from the
+// existing status/is_closed/is_deleted columns rather than a fifth
+// column duplicating them (see migration 0031). "rejected" bounties
+// (an existing sub-state of the host-a-bounty moderation workflow)
+// count as 'draft' here: like a pending bounty, they were never public
+// and can't be participated in.
+export type BountyLifecycleStatus = 'draft' | 'active' | 'closed' | 'deleted'
+
+export function bountyLifecycleStatus(b: Pick<Bounty, 'status' | 'is_closed' | 'is_deleted'>): BountyLifecycleStatus {
+  if (b.is_deleted) return 'deleted'
+  if (b.status !== 'approved') return 'draft'
+  return b.is_closed ? 'closed' : 'active'
+}
 
 export interface Application {
   id: string

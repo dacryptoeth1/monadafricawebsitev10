@@ -63,7 +63,7 @@ export default function AdminAnalytics({ showToast }: { showToast: (msg: string)
       // low hundreds of rows in practice, unlike users/transactions), and
       // we only pull the 2 columns needed — light enough to aggregate
       // client-side rather than adding another SQL function for it.
-      const { data: bounties, error: bountiesError } = await supabase.from('bounties').select('category, difficulty, status')
+      const { data: bounties, error: bountiesError } = await supabase.from('bounties').select('category, difficulty, status').eq('is_deleted', false)
       if (bountiesError) showToast(bountiesError.message)
 
       const [creditTotalsRes, xpTotalsRes, xpByReasonRes] = await Promise.all([

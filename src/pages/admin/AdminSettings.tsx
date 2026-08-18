@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { runAdminAction } from '../../lib/adminActions'
 import { defaultSiteSettings } from '../../types'
 import type { SiteSettings } from '../../types'
+import { invalidateSiteSettingsCache } from '../../hooks/useSiteSettings'
 
 function isValidUrl(value: string): boolean {
   if (!value) return true // empty is allowed — several fields are optional
@@ -67,7 +68,11 @@ export default function AdminSettings({ showToast }: { showToast: (msg: string) 
       showToast,
     )
     setSaving(false)
-    if (ok) showToast('Settings saved')
+    // Public pages (Home/Bounties/Community) cache this row for the rest
+    // of the browser session — see useSiteSettings.ts — so without this,
+    // a change made here wouldn't show up on those pages until a full
+    // reload even though it saved correctly.
+    if (ok) { invalidateSiteSettingsCache(); showToast('Settings saved') }
   }
 
   if (!loaded) return <div className="text-white/40 text-sm">Loading…</div>

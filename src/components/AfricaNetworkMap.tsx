@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+
 const NODES = [
   { name: 'Cairo', x: 345, y: 105 },
   { name: 'Accra', x: 148, y: 318 },
@@ -13,9 +15,30 @@ const LINKS: [number, number][] = [
   [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [3, 7], [1, 4],
 ]
 
+// The pulsing node rings used to be plain SVG SMIL <animate> elements with
+// repeatCount="indefinite" — that runs forever on the compositor even when
+// this section is scrolled out of view or the tab is backgrounded, and
+// SMIL animations aren't touched by the app-wide CSS `prefers-reduced-motion`
+// rule (that rule only lowers *CSS* animation/transition durations). Both
+// are exactly the "constantly animated background" cost this component
+// shouldn't have. Now the rings only mount (and thus only animate) while
+// the map is actually on screen, and don't mount at all for users who asked
+// for reduced motion.
 export default function AfricaNetworkMap({ className = '' }: { className?: string }) {
+  const ref = useRef<SVGSVGElement>(null)
+  const [animate, setAnimate] = useState(false)
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(([entry]) => setAnimate(entry.isIntersecting), { threshold: 0.1 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
   return (
-    <svg className={className} viewBox="0 0 600 620" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg ref={ref} className={className} viewBox="0 0 600 620" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <linearGradient id="continentStroke" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#FFB347" />
@@ -42,8 +65,8 @@ export default function AfricaNetworkMap({ className = '' }: { className?: strin
       {NODES.map((n, i) => (
         <g key={n.name} transform={`translate(${n.x},${n.y})`}>
           <circle r="10" fill="none" stroke="#A99AFF" strokeWidth="1" opacity="0.5">
-            <animate attributeName="r" values="6;20" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.6;0" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />
+            {animate && <animate attributeName="r" values="6;20" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />}
+            {animate && <animate attributeName="opacity" values="0.6;0" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />}
           </circle>
           <circle r="4.5" fill={i % 2 === 0 ? '#E8B75D' : '#A99AFF'} />
         </g>
