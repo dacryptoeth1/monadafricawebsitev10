@@ -63,7 +63,7 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
     setForm({
       title: ev.title,
       description: ev.description ?? '',
-      event_date: ev.event_date,
+      event_date: ev.event_date ?? '',
       start_time: ev.start_time ?? '',
       end_time: ev.end_time ?? '',
       location: ev.location ?? '',

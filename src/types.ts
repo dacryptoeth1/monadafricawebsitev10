@@ -274,7 +274,11 @@ export interface EventListing {
   id: string
   title: string
   description: string | null
-  event_date: string
+  // Nullable: `events.event_date` has no NOT NULL constraint, and events
+  // created via the simpler Admin → Events tab (AdminCollectionPanel) can
+  // be saved without a date. Was previously (incorrectly) typed as a
+  // guaranteed string — see formatEventDate() in lib/eventStatus.ts.
+  event_date: string | null
   event_type: string | null
   link: string | null
   start_time: string | null
