@@ -5,9 +5,17 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Defense-in-depth against horizontal scroll/jank on mobile: most
+       sections already contain their own oversized decorative elements
+       with overflow-hidden (see Home.tsx's Hero), but a single
+       un-audited section overflowing would otherwise make the entire
+       page scrollable sideways. This costs nothing when nothing
+       overflows, and only ever clips deliberately-decorative overflow. */
+    overflow-x: hidden;
   }
   body {
     font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
   }
   ::selection {
     background: #6E54FF;

@@ -35,7 +35,11 @@ export default function Dashboard() {
       supabase.from('applications').select('*, bounties(title, reward, logo_url, project_name, is_closed, is_deleted)').eq('user_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('submissions').select('*, bounties(title, logo_url, project_name)').eq('user_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('notifications').select('*').or(`user_id.eq.${profile.id},user_id.is.null`).order('created_at', { ascending: false }).limit(20),
-      supabase.from('profiles').select('id', { count: 'exact', head: true }).gt('xp', profile.xp),
+      // leaderboard_public, not profiles — profiles only lets a row's
+      // owner read it, so this always came back as "0 users have more
+      // XP than me" (i.e. rank #1) for literally every user before the
+      // public view existed. See migration 0032.
+      supabase.from('leaderboard_public').select('id', { count: 'exact', head: true }).gt('xp', profile.xp),
       supabase.from('credit_transactions').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(15),
     ])
     setApplications((apps as AppRow[]) ?? [])

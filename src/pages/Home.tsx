@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Boxes, CalendarDays, ChevronLeft, ChevronRight, ExternalLink, Handshake, Newspaper, Target, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import type { Bounty, EcosystemProject, EventItem, NewsItem, Partner, Profile, SiteContent, SiteSettings } from '../types'
+import type { Bounty, EcosystemProject, EventItem, NewsItem, Partner, PublicProfile, SiteContent, SiteSettings } from '../types'
 import { defaultSiteSettings } from '../types'
 import { useSiteSettings } from '../hooks/useSiteSettings'
 import Reveal from '../components/Reveal'
@@ -79,7 +79,13 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    supabase.from('profiles').select('id', { count: 'exact', head: true }).then(({ count }) => setRegisteredUsers(count ?? 0))
+    // profiles has no public SELECT policy (a row is only readable by
+    // its own owner or an admin — see migration 0032's notes), so a
+    // plain count(*)-via-select against it always returned 0 to a real
+    // visitor. total_registered_users() is a SECURITY DEFINER RPC that
+    // returns nothing but a number — no row data, no PII — specifically
+    // so this stat can be public.
+    supabase.rpc('total_registered_users').then(({ data }) => setRegisteredUsers(typeof data === 'number' ? data : 0))
     supabase.from('bounties').select('id', { count: 'exact', head: true }).eq('is_closed', true).eq('is_deleted', false).then(({ count }) => setCompletedBounties(count ?? 0))
   }, [])
 
@@ -224,7 +230,11 @@ function StatsStrip({
   )
 }
 
-function BountiesPreview({ bounties, settings }: { bounties: Bounty[] | null; settings: SiteSettings }) {
+// Wrapped in memo: `bounties` and `settings` are each their own stable
+// state slot in Home() (only change reference when that specific data
+// actually arrives/updates), so this section doesn't need to re-render
+// just because an unrelated sibling section's data changed.
+const BountiesPreview = memo(function BountiesPreview({ bounties, settings }: { bounties: Bounty[] | null; settings: SiteSettings }) {
   return (
     <section className="py-28">
       <div className="max-w-7xl mx-auto px-6">
@@ -262,7 +272,7 @@ function BountiesPreview({ bounties, settings }: { bounties: Bounty[] | null; se
       </div>
     </section>
   )
-}
+})
 
 function EcosystemLogoGrid({ projects }: { projects: EcosystemProject[] | null }) {
   // Compact "as seen in" style logo band — distinct from the fuller
@@ -410,7 +420,7 @@ function PartnersSection({ partners }: { partners: Partner[] | null }) {
   )
 }
 
-function EventsSection({ events }: { events: EventItem[] | null }) {
+const EventsSection = memo(function EventsSection({ events }: { events: EventItem[] | null }) {
   return (
     <section className="py-28 bg-panel/30">
       <div className="max-w-7xl mx-auto px-6">
@@ -442,9 +452,9 @@ function EventsSection({ events }: { events: EventItem[] | null }) {
       </div>
     </section>
   )
-}
+})
 
-function NewsSection({ news }: { news: NewsItem[] | null }) {
+const NewsSection = memo(function NewsSection({ news }: { news: NewsItem[] | null }) {
   return (
     <section className="py-28">
       <div className="max-w-7xl mx-auto px-6">
@@ -474,13 +484,22 @@ function NewsSection({ news }: { news: NewsItem[] | null }) {
       </div>
     </section>
   )
-}
+})
 
-function LeaderboardPreview() {
-  const [top, setTop] = useState<Profile[] | null>(null)
+// Wrapped in memo: takes no props and manages its own data internally,
+// so it never needs to re-render just because an unrelated sibling
+// section's state (bounties, events, news, ...) updated during Home's
+// staggered initial data load — each of those is a separate top-level
+// useState in Home(), and every one of them updating re-renders every
+// section unless memoized like this.
+const LeaderboardPreview = memo(function LeaderboardPreview() {
+  const [top, setTop] = useState<PublicProfile[] | null>(null)
 
   useEffect(() => {
-    supabase.from('profiles').select('*').order('xp', { ascending: false }).limit(5).then(({ data }) => setTop((data as Profile[]) ?? []))
+    // leaderboard_public (migration 0032), not profiles directly — see
+    // that migration's notes for why a direct profiles query here
+    // always returned 0 rows to a real, non-admin visitor.
+    supabase.from('leaderboard_public').select('id, username, full_name, avatar_url, country, xp, total_referrals').order('xp', { ascending: false }).limit(5).then(({ data }) => setTop((data as PublicProfile[]) ?? []))
   }, [])
 
   const medals = ['🥇', '🥈', '🥉']
@@ -517,13 +536,13 @@ function LeaderboardPreview() {
       </div>
     </section>
   )
-}
+})
 
-function FeaturedContributors() {
-  const [top, setTop] = useState<Profile[] | null>(null)
+const FeaturedContributors = memo(function FeaturedContributors() {
+  const [top, setTop] = useState<PublicProfile[] | null>(null)
 
   useEffect(() => {
-    supabase.from('profiles').select('*').gt('total_referrals', 0).order('total_referrals', { ascending: false }).limit(6).then(({ data }) => setTop((data as Profile[]) ?? []))
+    supabase.from('leaderboard_public').select('id, username, full_name, avatar_url, country, xp, total_referrals').gt('total_referrals', 0).order('total_referrals', { ascending: false }).limit(6).then(({ data }) => setTop((data as PublicProfile[]) ?? []))
   }, [])
 
   return (
@@ -557,7 +576,7 @@ function FeaturedContributors() {
       </div>
     </section>
   )
-}
+})
 
 function FinalCta() {
   return (

@@ -58,6 +58,25 @@ export interface Application {
   created_at: string
 }
 
+// `public.leaderboard_public` (migration 0032) — the only source of
+// other users' data that's actually readable by a logged-out visitor
+// or an ordinary (non-admin) logged-in user. `profiles` itself only
+// ever allows a row's owner (or an admin) to SELECT it — see the RLS
+// policy history in 0001/0002/0014/0018 — so this view exists to
+// safely expose just the public-facing leaderboard/profile-preview
+// fields to everyone else, with every private column (email,
+// wallet_address, bio, socials, suspension flags, ...) excluded by
+// construction rather than by a filter that could be gotten wrong.
+export interface PublicProfile {
+  id: string
+  username: string | null
+  full_name: string | null
+  avatar_url: string | null
+  country: string | null
+  xp: number
+  total_referrals: number
+}
+
 export type UserRole = 'Developer' | 'Designer' | 'Content Creator' | 'Community Member' | 'Founder' | 'Student'
 
 export type AdminRole = 'super_admin' | 'admin' | 'moderator'

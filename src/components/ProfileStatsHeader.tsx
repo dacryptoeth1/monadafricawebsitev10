@@ -23,8 +23,12 @@ export default function ProfileStatsHeader({ profile, badges }: { profile: Profi
           rejected: rows.filter((r: any) => r.status === 'rejected').length,
         })
       })
+    // leaderboard_public, not profiles — see migration 0032. profiles'
+    // RLS only ever lets a row's owner read it, so this always counted
+    // 0 other users (rank #1 for everyone) before the public view
+    // existed.
     supabase
-      .from('profiles')
+      .from('leaderboard_public')
       .select('id', { count: 'exact', head: true })
       .gt('xp', profile.xp)
       .then(({ count }) => setRank((count ?? 0) + 1))

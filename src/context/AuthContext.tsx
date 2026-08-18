@@ -116,7 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session)
       loadProfileAndAdmin(data.session)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    // supabase-js v2 also fires this listener immediately on subscribe,
+    // with event "INITIAL_SESSION" and that exact same session — so
+    // without the guard below, every single page load ran
+    // loadProfileAndAdmin() (a profile query + an admin-role query)
+    // twice: once from getSession() above, once again from this
+    // redundant initial callback. Every later real change (SIGNED_IN,
+    // SIGNED_OUT, TOKEN_REFRESHED, USER_UPDATED, ...) still goes
+    // through normally — only that one guaranteed-duplicate initial
+    // event is skipped, so this can't affect login/logout/refresh
+    // behavior, only remove a wasted repeat of the same fetch.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'INITIAL_SESSION') return
       setSession(s)
       loadProfileAndAdmin(s)
     })
