@@ -23,6 +23,7 @@ interface AuthValue {
   signUp: (email: string, password: string, fields: SignUpFields) => Promise<void>
   signOut: () => Promise<void>
   resetPasswordRequest: (email: string) => Promise<void>
+  verifyPasswordResetOtp: (email: string, token: string) => Promise<void>
   updatePassword: (newPassword: string) => Promise<void>
   refreshProfile: () => Promise<void>
   resendVerificationEmail: (email: string) => Promise<void>
@@ -195,25 +196,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function resetPasswordRequest(email: string) {
     // Calls Supabase Auth's own resetPasswordForEmail() directly — this
     // needs nothing but the anon/publishable key that was already
-    // safely client-side. A prior round of this routed through a custom
-    // Netlify Function (using the Supabase admin API + Resend)
-    // specifically because Supabase's own mail delivery was failing
-    // server-side (confirmed live: 500 "Error sending recovery email").
-    // That function depended on SUPABASE_SERVICE_ROLE_KEY being
-    // correctly set in Netlify's *function* environment — a separate,
-    // easy-to-miss configuration surface from the site's regular env
-    // vars — and repeatedly failed with "server_not_configured" because
-    // that var was never reliably present in the deployed environment.
-    // Simplified back to Supabase's own official flow (the function and
-    // its frontend wrapper were removed, not just unused) — the actual
-    // email delivery is now entirely Supabase's Auth SMTP
-    // configuration's responsibility (Supabase dashboard →
-    // Authentication → Emails → SMTP Settings, pointed at Resend),
-    // rather than a second, independent piece of infrastructure this
-    // codebase has to keep correctly configured.
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
+    // safely client-side. Password reset is entirely OTP-based (see
+    // verifyPasswordResetOtp below): the user types the 6-digit code
+    // from the email, never clicks a link, so there's deliberately no
+    // `redirectTo` here — that option only matters for the link-based
+    // flow this app no longer uses, and dropping it also removes the
+    // whole "redirectTo must exactly match an allow-listed URL or
+    // Supabase silently falls back to the Site URL" failure mode that
+    // caused several rounds of "the link opens the homepage" bugs
+    // before. Email delivery is Supabase's Auth SMTP configuration's
+    // responsibility (Supabase dashboard → Authentication → Emails →
+    // SMTP Settings, pointed at Resend) — nothing here sends mail
+    // itself.
+    const { error } = await supabase.auth.resetPasswordForEmail(email)
     if (!error) return
 
     // supabase-js wraps a 5xx response from /auth/v1/recover as an
@@ -243,7 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await fetch(`${supabaseUrl}/auth/v1/recover`, {
         method: 'POST',
         headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, redirect_to: `${window.location.origin}/reset-password` }),
+        body: JSON.stringify({ email }),
       })
       if (!res.ok) {
         const detail = await res.json().catch(() => null)
@@ -262,6 +257,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw enriched
     }
     throw error
+  }
+
+  // Exchanges the 6-digit code from the "Reset Password" email for a
+  // real recovery session — Supabase Auth's own native OTP support
+  // (type: 'recovery'). Needs nothing but the anon key already in use
+  // everywhere else in this file: no custom OTP table, no server-side
+  // function, and it inherits Supabase's own single-use/expiry/
+  // rate-limit guarantees on the code itself. Throws on an invalid or
+  // expired code — callers show that inline rather than silently
+  // failing. On success this establishes a session, so the immediately
+  // following updatePassword() call below has something to act on.
+  async function verifyPasswordResetOtp(email: string, token: string) {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' })
+    if (error) throw error
   }
 
   async function updatePassword(newPassword: string) {
@@ -287,6 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         resetPasswordRequest,
+        verifyPasswordResetOtp,
         updatePassword,
         refreshProfile,
         resendVerificationEmail,

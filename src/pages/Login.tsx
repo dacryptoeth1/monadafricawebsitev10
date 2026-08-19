@@ -22,7 +22,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   // One-shot confirmation banner (e.g. "Password updated successfully")
   // handed over via navigate(..., { state: { message } }) from a prior
-  // page — ResetPassword.tsx is the current sender. Read once on mount
+  // page — ForgotPassword.tsx is the current sender. Read once on mount
   // via useState's initializer, not on every render, so it doesn't
   // reappear if the user navigates away and back without a fresh state.
   const [successMessage] = useState(location.state?.message ?? null)
