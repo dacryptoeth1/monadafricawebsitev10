@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase'
 import type { AdminRole, Profile } from '../types'
 
 interface SignUpFields {
@@ -215,7 +215,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     })
-    if (error) throw error
+    if (!error) return
+
+    // supabase-js wraps a 5xx response from /auth/v1/recover as an
+    // AuthRetryableFetchError whose `.message` has been observed to be
+    // the literal string "{}" — the SDK deliberately doesn't parse the
+    // body for responses it treats as "retryable", so Supabase's actual
+    // error_code/msg (e.g. "unexpected_failure" / "Error sending
+    // recovery email" — exactly the SMTP-misconfiguration failure this
+    // flow hit before, see the removed-Netlify-Function history above)
+    // never reaches the UI, and getErrorMessage() (src/lib/errors.ts)
+    // has no real message to fall back to other than a generic one.
+    // Recover the real body with one direct fetch to the same endpoint
+    // the SDK just called, so the actual Supabase error is what gets
+    // shown/logged instead of a guess. Only worth doing when the SDK's
+    // own message is genuinely useless — a well-formed error (e.g. a
+    // 429 rate limit, which supabase-js parses correctly) shouldn't
+    // trigger a second network call.
+    const sdkMessage = (error.message || '').trim().toLowerCase()
+    if (sdkMessage && sdkMessage !== '{}' && sdkMessage !== '[object object]') {
+      throw error
+    }
+
+    let detailMessage: string | undefined
+    let detailCode: string | undefined
+    let detailStatus: number | undefined
+    try {
+      const res = await fetch(`${supabaseUrl}/auth/v1/recover`, {
+        method: 'POST',
+        headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, redirect_to: `${window.location.origin}/reset-password` }),
+      })
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null)
+        detailMessage = detail?.msg || detail?.message
+        detailCode = detail?.error_code
+        detailStatus = res.status
+      }
+    } catch {
+      // The enrichment attempt itself failed (network blip, etc.) —
+      // fall through and throw the SDK's original error below instead.
+    }
+
+    if (detailMessage) {
+      const enriched = new Error(`${detailMessage}${detailCode ? ` (${detailCode})` : ''}`)
+      ;(enriched as { status?: number }).status = detailStatus
+      throw enriched
+    }
+    throw error
   }
 
   // Exchanges the 6-digit code from the "Reset Password" email for a

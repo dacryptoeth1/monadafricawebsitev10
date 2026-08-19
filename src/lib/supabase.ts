@@ -43,6 +43,14 @@ if (parsedUrl.protocol !== 'https:') {
 // right project when auth/queries fail with an opaque network error.
 console.log('[supabase] Using project URL:', url)
 
+// Exported alongside the client for the rare case where a raw fetch to
+// a Supabase REST/Auth endpoint is genuinely needed (see AuthContext.tsx's
+// resetPasswordRequest — recovering the real error body supabase-js's
+// AuthRetryableFetchError discards for 5xx responses). Not secrets: the
+// anon key is already public in every browser network tab regardless.
+export const supabaseUrl = url
+export const supabaseAnonKey = anonKey
+
 export const supabase = createClient(url, anonKey, {
   auth: {
     persistSession: true, // keeps the session in localStorage so a refresh doesn't log you out
