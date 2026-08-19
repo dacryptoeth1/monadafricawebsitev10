@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { sendPasswordResetEmail } from '../lib/sendPasswordResetEmail'
 import type { AdminRole, Profile } from '../types'
 
 interface SignUpFields {
@@ -194,33 +193,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function resetPasswordRequest(email: string) {
-    // Previously called supabase.auth.resetPasswordForEmail() directly,
-    // which makes Supabase itself both generate the recovery token AND
-    // send the email through whatever mailer Supabase Auth has
-    // configured. Confirmed live against production that the send step
-    // was failing server-side (500 "Error sending recovery email").
-    // Now routed through a Netlify Function that still uses Supabase
-    // Auth for the actual recovery token/link (via the admin API), but
-    // sends the resulting email through Resend's verified
-    // noreply@monadafrica.com instead — see
-    // netlify/functions/send-password-reset-email.ts for the full flow
-    // and the anti-enumeration behavior (a nonexistent email still
-    // resolves here as success, exactly like Supabase's own endpoint
-    // always did).
-    const result = await sendPasswordResetEmail({
-      email,
+    // Calls Supabase Auth's own resetPasswordForEmail() directly — this
+    // needs nothing but the anon/publishable key that was already
+    // safely client-side. A prior round of this routed through a custom
+    // Netlify Function (using the Supabase admin API + Resend)
+    // specifically because Supabase's own mail delivery was failing
+    // server-side (confirmed live: 500 "Error sending recovery email").
+    // That function depended on SUPABASE_SERVICE_ROLE_KEY being
+    // correctly set in Netlify's *function* environment — a separate,
+    // easy-to-miss configuration surface from the site's regular env
+    // vars — and repeatedly failed with "server_not_configured" because
+    // that var was never reliably present in the deployed environment.
+    // Simplified back to Supabase's own official flow (the function and
+    // its frontend wrapper were removed, not just unused) — the actual
+    // email delivery is now entirely Supabase's Auth SMTP
+    // configuration's responsibility (Supabase dashboard →
+    // Authentication → Emails → SMTP Settings, pointed at Resend),
+    // rather than a second, independent piece of infrastructure this
+    // codebase has to keep correctly configured.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     })
-    if (!result.ok) {
-      const messages: Record<string, string> = {
-        invalid_email: 'Please enter a valid email address.',
-        server_not_configured: 'Password reset is temporarily unavailable. Please try again later.',
-        send_failed: "We couldn't send the reset email right now. Please try again in a few minutes.",
-        network_error: "We couldn't reach the server — check your connection and try again.",
-        invalid_response: "We couldn't reach the password reset service. Please try again shortly.",
-      }
-      throw new Error((result.error && messages[result.error]) || messages.send_failed)
-    }
+    if (error) throw error
   }
 
   async function updatePassword(newPassword: string) {
