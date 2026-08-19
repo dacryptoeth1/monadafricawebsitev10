@@ -312,6 +312,12 @@ export interface EventListing {
   created_by: string | null
   created_at: string
   updated_at: string
+  // Added in supabase/migrations/0033_event_email_verification_and_invite_codes.sql.
+  // Opt-in per event, defaults to false — an entirely separate feature
+  // from the instant-invite-code registration flow above: when true,
+  // the Events page also offers "Verify Email & Get Invite Code",
+  // gated behind proving ownership of the signed-in account's email.
+  requires_email_verification: boolean
 }
 
 export interface EventRegistration {
@@ -332,6 +338,30 @@ export interface EventRegistration {
   email_last_error: string | null
   created_at: string
   updated_at: string
+}
+
+// Client-visible shape of get_event_verification_status() — the DB
+// function backing the new email-verification invite-code feature
+// (0033). Deliberately excludes anything about the OTP itself
+// (code_hash/salt/attempt_count never leave the server).
+export interface EventVerificationStatus {
+  verified: boolean
+  invite_code: string | null
+  has_pending_code: boolean
+  pending_expires_at: string | null
+  account_email: string | null
+}
+
+// Row shape returned by admin_list_event_invite_codes() — admin-only,
+// never includes the OTP/hash, only the outcome.
+export interface EventInviteCodeAdminRow {
+  user_id: string
+  email: string | null
+  full_name: string | null
+  invite_code: string
+  status: 'active' | 'revoked'
+  verified_at: string | null
+  created_at: string
 }
 
 export interface SiteSettings {

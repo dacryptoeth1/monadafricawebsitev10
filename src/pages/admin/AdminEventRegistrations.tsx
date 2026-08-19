@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Copy, Download, Mail, Search, X } from 'lucide-react'
+import { Copy, Download, Mail, Search, ShieldCheck, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { runAdminAction } from '../../lib/adminActions'
 import { sendInviteEmail } from '../../lib/sendInviteEmail'
 import { formatEventDate } from '../../lib/eventStatus'
-import type { EventListing, EventListingStatus, EventRegistration } from '../../types'
+import type { EventInviteCodeAdminRow, EventListing, EventListingStatus, EventRegistration } from '../../types'
 
 const EMPTY_FORM: Record<string, string> = {
   title: '', description: '', event_date: '', start_time: '', end_time: '',
   location: '', image_url: '', event_url: '', capacity: '', registration_deadline: '', status: 'published',
+  requires_email_verification: 'false',
+}
+
+interface VerificationStats {
+  total_verification_attempts: number
+  verified_count: number
+  invite_codes_issued: number
 }
 
 export default function AdminEventRegistrations({ showToast }: { showToast: (msg: string) => void }) {
@@ -22,6 +29,7 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
   const [activeEventId, setActiveEventId] = useState<string | null>(null)
   const [detail, setDetail] = useState<EventRegistration | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [verificationStats, setVerificationStats] = useState<Record<string, VerificationStats>>({})
 
   async function load() {
     setLoading(true)
@@ -32,9 +40,27 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
     if (evErr) { console.error('Failed to load events:', evErr); showToast(evErr.message) }
     if (regErr) { console.error('Failed to load event registrations:', regErr); showToast(regErr.message) }
     setLoadError(evErr?.message || regErr?.message || null)
-    setEvents((ev as EventListing[]) ?? [])
+    const eventRows = (ev as EventListing[]) ?? []
+    setEvents(eventRows)
     setRegistrations((regs as EventRegistration[]) ?? [])
     setLoading(false)
+
+    // Verification stats (verified emails / invite codes issued) are
+    // opt-in per event — only fetched for events that actually turned
+    // requires_email_verification on, so this stays a no-op for every
+    // event using the old flow only.
+    const flagged = eventRows.filter((e) => e.requires_email_verification)
+    if (flagged.length > 0) {
+      const entries = await Promise.all(
+        flagged.map(async (e) => {
+          const { data, error } = await supabase.rpc('admin_event_verification_stats', { p_event_id: e.id })
+          if (error) { console.error('[AdminEventRegistrations] verification stats failed:', error); return null }
+          const row = Array.isArray(data) ? data[0] : data
+          return row ? ([e.id, row as VerificationStats] as const) : null
+        }),
+      )
+      setVerificationStats(Object.fromEntries(entries.filter((e): e is readonly [string, VerificationStats] => e !== null)))
+    }
   }
 
   useEffect(() => {
@@ -72,6 +98,7 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
       capacity: ev.capacity !== null ? String(ev.capacity) : '',
       registration_deadline: ev.registration_deadline ? toLocalInputValue(ev.registration_deadline) : '',
       status: ev.status,
+      requires_email_verification: String(ev.requires_email_verification),
     })
     setEditingId(ev.id)
     setShowForm(true)
@@ -97,6 +124,7 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
       capacity: capacityValue,
       registration_deadline: form.registration_deadline ? new Date(form.registration_deadline).toISOString() : null,
       status: form.status as EventListingStatus,
+      requires_email_verification: form.requires_email_verification === 'true',
     }
 
     const ok = editingId
@@ -176,9 +204,17 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
                         <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${ev.registration_open ? 'text-emerald-300 border-emerald-300/30' : 'text-white/40 border-white/20'}`}>
                           {ev.registration_open ? 'registration open' : 'registration closed'}
                         </span>
+                        {ev.requires_email_verification && (
+                          <span className="flex items-center gap-1 text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-purple/30 text-purple-light">
+                            <ShieldCheck size={10} /> email verification
+                          </span>
+                        )}
                       </div>
                       <div className="text-white/40 text-xs mt-1">
                         {formatEventDate(ev.event_date)} · {ev.location || 'No location set'} · {c.total}{ev.capacity !== null ? `/${ev.capacity}` : ''} registered · {c.checkedIn} checked in
+                        {ev.requires_email_verification && verificationStats[ev.id] && (
+                          <> · {verificationStats[ev.id].verified_count} verified · {verificationStats[ev.id].invite_codes_issued} invite codes issued</>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2 flex-none flex-wrap">
@@ -263,6 +299,19 @@ function EventForm({
           <label className="font-mono text-[10px] uppercase tracking-wider text-white/40 block mb-1.5">Description</label>
           <textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} className="input w-full text-sm resize-y" />
         </div>
+        <label className="sm:col-span-2 flex items-start gap-2.5 text-xs text-white/60 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.requires_email_verification === 'true'}
+            onChange={(e) => set('requires_email_verification', String(e.target.checked))}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="text-white/80 font-medium">Require email verification for invite codes</span>
+            <br />
+            Adds a separate "Verify Email &amp; Get Invite Code" step on this event — attendees prove they control their account email via a one-time code before receiving a personal invite code. Does not change the registration form above.
+          </span>
+        </label>
       </div>
       <div className="flex gap-2 mt-4">
         <button onClick={onSave} disabled={saving} className="px-4 py-2 rounded-full text-xs font-semibold bg-gradient-to-br from-purple-glow to-purple disabled:opacity-50">
@@ -296,6 +345,19 @@ function AttendeeList({
   const [search, setSearch] = useState('')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [resendingId, setResendingId] = useState<string | null>(null)
+  const [inviteCodes, setInviteCodes] = useState<EventInviteCodeAdminRow[]>([])
+  const [copiedInviteCode, setCopiedInviteCode] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!event.requires_email_verification) return
+    let cancelled = false
+    supabase.rpc('admin_list_event_invite_codes', { p_event_id: event.id }).then(({ data, error }) => {
+      if (cancelled) return
+      if (error) { console.error('[AdminEventRegistrations] admin_list_event_invite_codes failed:', error); return }
+      setInviteCodes((data as EventInviteCodeAdminRow[]) ?? [])
+    })
+    return () => { cancelled = true }
+  }, [event.id, event.requires_email_verification])
 
   const filtered = registrations.filter((r) => {
     if (!search.trim()) return true
@@ -381,6 +443,50 @@ function AttendeeList({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {event.requires_email_verification && (
+        <div className="mt-8 pt-6 border-t border-white/10">
+          <div className="flex items-center gap-2 mb-1">
+            <ShieldCheck size={14} className="text-purple-light" />
+            <h4 className="font-display font-semibold text-sm">Verified emails &amp; invite codes</h4>
+          </div>
+          <p className="text-white/40 text-xs mb-4">
+            {inviteCodes.length} account{inviteCodes.length === 1 ? '' : 's'} verified and issued a personal invite code for this event. This is separate from the registration list above.
+          </p>
+          {inviteCodes.length === 0 ? (
+            <div className="text-white/40 text-sm py-6 text-center border border-white/10 rounded-xl">No one has verified their email for this event yet.</div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {inviteCodes.map((row) => (
+                <div key={row.user_id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                      {row.full_name || 'Unnamed account'}
+                      <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${row.status === 'active' ? 'text-emerald-300 border-emerald-300/30' : 'text-white/40 border-white/20'}`}>
+                        {row.status}
+                      </span>
+                    </div>
+                    <div className="text-white/40 text-xs mt-0.5">
+                      {row.email || '—'} · <code className="text-purple-light">{row.invite_code}</code>
+                      {row.verified_at && <> · verified {new Date(row.verified_at).toLocaleString()}</>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(row.invite_code).catch(() => {})
+                      setCopiedInviteCode(row.invite_code)
+                      setTimeout(() => setCopiedInviteCode(null), 1500)
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border border-white/15 hover:bg-white/5"
+                  >
+                    <Copy size={12} /> {copiedInviteCode === row.invite_code ? 'Copied' : 'Copy code'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

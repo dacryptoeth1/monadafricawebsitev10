@@ -6,6 +6,7 @@ import { sendInviteEmail } from '../lib/sendInviteEmail'
 import { formatEventDate, formatEventTime, getRegistrationStatus } from '../lib/eventStatus'
 import type { EventListing } from '../types'
 import CountrySelect from './CountrySelect'
+import EventVerificationPanel from './EventVerificationPanel'
 
 interface StoredRegistration {
   registrationId: string
@@ -253,6 +254,8 @@ export default function EventRegistrationModal({
             )}
           </>
         )}
+
+        {event.requires_email_verification && <EventVerificationPanel event={event} />}
       </motion.div>
     </motion.div>
   )
