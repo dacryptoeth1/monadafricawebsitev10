@@ -23,7 +23,6 @@ interface AuthValue {
   signUp: (email: string, password: string, fields: SignUpFields) => Promise<void>
   signOut: () => Promise<void>
   resetPasswordRequest: (email: string) => Promise<void>
-  verifyPasswordResetOtp: (email: string, token: string) => Promise<void>
   updatePassword: (newPassword: string) => Promise<void>
   refreshProfile: () => Promise<void>
   resendVerificationEmail: (email: string) => Promise<void>
@@ -265,21 +264,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     throw error
   }
 
-  // Exchanges the 6-digit code from the "Reset Password" email for a
-  // real recovery session — Supabase Auth's own native OTP support
-  // (type: 'recovery'), the same underlying mechanism as the link-based
-  // flow above, just consuming the email's {{ .Token }} value instead
-  // of following {{ .ConfirmationURL }}. This needs nothing but the
-  // anon key already in use everywhere else in this file: no custom
-  // OTP table, no server-side function, and it inherits Supabase's own
-  // single-use/expiry/rate-limit guarantees on the code. Throws on an
-  // invalid or expired code — callers show that inline rather than
-  // silently failing.
-  async function verifyPasswordResetOtp(email: string, token: string) {
-    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' })
-    if (error) throw error
-  }
-
   async function updatePassword(newPassword: string) {
     const { error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) throw error
@@ -303,7 +287,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         resetPasswordRequest,
-        verifyPasswordResetOtp,
         updatePassword,
         refreshProfile,
         resendVerificationEmail,

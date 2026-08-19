@@ -1,331 +1,78 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Check, Eye, EyeOff, X } from 'lucide-react'
+import { type FormEvent, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Reveal from '../components/Reveal'
 import MonadMark from '../components/MonadMark'
 import { getErrorMessage, logError } from '../lib/errors'
 
-// Password reset via a 6-digit code instead of an emailed link.
-// Uses Supabase Auth's own native OTP recovery support end to end
-// (resetPasswordForEmail + verifyOtp(type:'recovery'), both in
-// AuthContext) — no custom OTP table or server function, so it
-// inherits Supabase's single-use/expiry/rate-limit guarantees. See
-// AuthContext.tsx's verifyPasswordResetOtp for the detailed why.
-//
-// NOTE: for the email to actually contain a 6-digit code instead of
-// (or in addition to) a link, the "Reset Password" template in
-// Supabase Dashboard → Authentication → Emails must render
-// {{ .Token }} — see the branded template + instructions this task
-// also delivers alongside this file. Until that template is updated,
-// resetPasswordForEmail() below still works exactly as before (this
-// screen just won't have a code to show the user yet).
-
-type Step = 'email' | 'code' | 'password' | 'success'
-
-const RESEND_COOLDOWN_SECONDS = 60
-const MAX_CODE_ATTEMPTS = 5
-
-function scorePassword(pw: string) {
-  let score = 0
-  if (pw.length >= 8) score++
-  if (pw.length >= 12) score++
-  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++
-  if (/\d/.test(pw)) score++
-  if (/[^A-Za-z0-9]/.test(pw)) score++
-  return Math.min(score, 4)
-}
-
-const STRENGTH_LABELS = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong']
-const STRENGTH_COLORS = ['bg-rose-400', 'bg-rose-400', 'bg-amber-400', 'bg-gold', 'bg-emerald-400']
-
+// Password reset uses Supabase Auth's own native link-based recovery
+// flow end to end: resetPasswordForEmail() here sends the email (its
+// "Reset Password" template's button must point at {{ .ConfirmationURL }}
+// — see supabase/email-templates/reset-password-link.html), the user
+// clicks it, lands on /reset-password with a recovery session Supabase
+// establishes automatically (see ResetPassword.tsx), and sets a new
+// password there. No custom OTP/code system for this flow — deliberate,
+// per requirement to use Supabase's own recovery mechanism as-is.
 export default function ForgotPassword() {
-  const { resetPasswordRequest, verifyPasswordResetOtp, updatePassword, signOut } = useAuth()
-  const navigate = useNavigate()
-
-  const [step, setStep] = useState<Step>('email')
+  const { resetPasswordRequest } = useAuth()
   const [email, setEmail] = useState('')
-  const [code, setCode] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-
   const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [attemptsRemaining, setAttemptsRemaining] = useState(MAX_CODE_ATTEMPTS)
-  const [cooldown, setCooldown] = useState(0)
-  const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => {
-    return () => { if (cooldownTimer.current) clearInterval(cooldownTimer.current) }
-  }, [])
-
-  function startCooldown() {
-    setCooldown(RESEND_COOLDOWN_SECONDS)
-    if (cooldownTimer.current) clearInterval(cooldownTimer.current)
-    cooldownTimer.current = setInterval(() => {
-      setCooldown((c) => {
-        if (c <= 1) {
-          if (cooldownTimer.current) clearInterval(cooldownTimer.current)
-          return 0
-        }
-        return c - 1
-      })
-    }, 1000)
-  }
-
-  async function requestCode(e?: FormEvent) {
-    e?.preventDefault()
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
     setError(null)
     setLoading(true)
     try {
       await resetPasswordRequest(email)
-      setAttemptsRemaining(MAX_CODE_ATTEMPTS)
-      setCode('')
-      setStep('code')
-      startCooldown()
+      setDone(true)
     } catch (err) {
+      // Full technical error always logged; getErrorMessage() (and
+      // AuthContext's resetPasswordRequest, which recovers the real
+      // Supabase error body when the SDK's own message is a useless
+      // "{}" — see its comments) means a genuine failure shows
+      // Supabase's actual message here, not a guess.
       logError('[ForgotPassword] resetPasswordRequest failed:', err)
-      const e2 = err as { message?: string; status?: number }
-      // Supabase's own resend rate-limit (429) shows up here on a fast
-      // re-request — surfaced as a cooldown message rather than a
-      // generic error, since the user's action (request a code) was
-      // otherwise valid.
-      if (e2?.status === 429) {
-        setError("You're requesting codes too quickly. Please wait a moment and try again.")
-        startCooldown()
-      } else {
-        const fallback = typeof e2?.status === 'number' && e2.status >= 500
-          ? "We couldn't send the code right now — this looks like a temporary problem on our end. Please try again shortly."
-          : 'Something went wrong sending the code. Please try again.'
-        setError(getErrorMessage(err, fallback))
-      }
+      const e2 = err as { status?: number }
+      const fallback = typeof e2?.status === 'number' && e2.status >= 500
+        ? "We couldn't send the email right now — this looks like a temporary problem on our end, not with your email address. Please try again in a few minutes."
+        : 'Something went wrong. Double check the email and try again.'
+      setError(getErrorMessage(err, fallback))
     } finally {
       setLoading(false)
     }
   }
-
-  async function handleVerifyCode(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
-      await verifyPasswordResetOtp(email, code)
-      setStep('password')
-    } catch (err) {
-      logError('[ForgotPassword] verifyPasswordResetOtp failed:', err)
-      const remaining = attemptsRemaining - 1
-      setAttemptsRemaining(remaining)
-      setCode('')
-      if (remaining <= 0) {
-        setError('Too many incorrect attempts. Request a new code to try again.')
-      } else {
-        // Supabase's verifyOtp deliberately returns the same generic
-        // "Token has expired or is invalid" message whether the code
-        // was simply wrong or genuinely expired — it doesn't
-        // distinguish, so this UI shouldn't guess either (a
-        // wrong-vs-expired split would have to come from parsing that
-        // string, which isn't reliable and isn't what it means anyway).
-        setError(`That code isn't right or has expired. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleSetPassword(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-
-    if (!meetsMinimum) {
-      setError('Choose a stronger password — see the requirements below.')
-      return
-    }
-    if (password !== confirm) {
-      setError('Passwords do not match.')
-      return
-    }
-
-    setLoading(true)
-    try {
-      await updatePassword(password)
-      // The recovery session's one-time job is done — sign out so the
-      // user lands on Login and authenticates fresh with the new
-      // password, matching the old link-based flow's behavior.
-      await signOut()
-      setStep('success')
-    } catch (err) {
-      setError(getErrorMessage(err, 'Something went wrong updating your password. Please try again.'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const strength = scorePassword(password)
-  const requirements = [
-    { label: 'At least 8 characters', met: password.length >= 8 },
-    { label: 'Upper and lowercase letters', met: /[a-z]/.test(password) && /[A-Z]/.test(password) },
-    { label: 'At least one number', met: /\d/.test(password) },
-  ]
-  const meetsMinimum = requirements.every((r) => r.met)
 
   return (
     <section className="pt-36 pb-28 min-h-screen flex items-center">
       <div className="max-w-sm mx-auto px-6 w-full text-center">
         <Reveal>
           <div className="flex justify-center mb-5"><MonadMark size={40} /></div>
-
-          {step === 'email' && (
+          {done ? (
+            <>
+              <div className="w-14 h-14 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center text-2xl">✓</div>
+              <h1 className="font-display font-semibold text-2xl mb-3">Check your email</h1>
+              <p className="text-white/55 text-sm leading-relaxed mb-8">
+                If an account exists for {email}, a password reset link is on its way. Click it to set a new password.
+              </p>
+              <Link to="/login" className="text-purple-light text-sm">Back to login</Link>
+            </>
+          ) : (
             <>
               <h1 className="font-display font-semibold text-2xl mb-2">Reset your password</h1>
-              <p className="text-white/50 text-sm mb-8">Enter your email and we'll send you a 6-digit verification code.</p>
-              <form onSubmit={requestCode} className="flex flex-col gap-4 text-left">
+              <p className="text-white/50 text-sm mb-8">We'll email you a link to set a new one.</p>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4 text-left">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Email</label>
                   <input type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} className="input" />
                 </div>
                 {error && <div className="text-sm text-rose-300">{error}</div>}
                 <button type="submit" disabled={loading} className="mt-2 px-5 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple disabled:opacity-50">
-                  {loading ? 'Sending…' : 'Send Verification Code'}
+                  {loading ? 'Sending…' : 'Send Reset Link'}
                 </button>
               </form>
               <Link to="/login" className="text-purple-light text-sm mt-6 inline-block">Back to login</Link>
-            </>
-          )}
-
-          {step === 'code' && (
-            <>
-              <h1 className="font-display font-semibold text-2xl mb-2">Enter your code</h1>
-              <p className="text-white/55 text-sm leading-relaxed mb-8">
-                If an account exists for <span className="text-white">{email}</span>, a verification code has been sent — it expires in 10 minutes.
-              </p>
-              <form onSubmit={handleVerifyCode} className="flex flex-col gap-4 text-left">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">6-digit code</label>
-                  <input
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    autoFocus
-                    placeholder="000000"
-                    maxLength={6}
-                    className="input text-center tracking-[0.4em] font-mono text-lg"
-                  />
-                </div>
-                {error && <div className="text-sm text-rose-300">{error}</div>}
-                <button
-                  type="submit"
-                  disabled={loading || code.length !== 6 || attemptsRemaining <= 0}
-                  className="mt-2 px-5 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple disabled:opacity-50"
-                >
-                  {loading ? 'Verifying…' : 'Verify Code'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => requestCode()}
-                  disabled={cooldown > 0 || loading}
-                  className="px-5 py-3 rounded-full text-sm font-semibold border border-white/15 hover:bg-white/5 disabled:opacity-40"
-                >
-                  {cooldown > 0 ? `Resend Code (${cooldown}s)` : 'Resend Code'}
-                </button>
-              </form>
-              <Link to="/login" className="text-purple-light text-sm mt-6 inline-block">Back to login</Link>
-            </>
-          )}
-
-          {step === 'password' && (
-            <>
-              <h1 className="font-display font-semibold text-2xl mb-2">Create new password</h1>
-              <p className="text-white/50 text-sm mb-8">Code verified. Choose a new password for your account.</p>
-
-              <form onSubmit={handleSetPassword} className="flex flex-col gap-4 text-left">
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">New Password</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      autoFocus
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="input pr-11"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-
-                  {password && (
-                    <div className="mt-1">
-                      <div className="flex gap-1">
-                        {[0, 1, 2, 3].map((i) => (
-                          <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i < strength ? STRENGTH_COLORS[strength] : 'bg-white/10'}`} />
-                        ))}
-                      </div>
-                      <div className="text-[11px] text-white/40 mt-1.5">{STRENGTH_LABELS[strength]}</div>
-                    </div>
-                  )}
-
-                  <ul className="mt-1 flex flex-col gap-1">
-                    {requirements.map((r) => (
-                      <li key={r.label} className={`text-[11px] flex items-center gap-1.5 ${r.met ? 'text-emerald-300' : 'text-white/35'}`}>
-                        {r.met ? <Check size={11} /> : <X size={11} />} {r.label}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Confirm Password</label>
-                  <div className="relative">
-                    <input
-                      type={showConfirm ? 'text' : 'password'}
-                      required
-                      value={confirm}
-                      onChange={(e) => setConfirm(e.target.value)}
-                      className="input pr-11"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirm((v) => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
-                      aria-label={showConfirm ? 'Hide password' : 'Show password'}
-                    >
-                      {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                  {confirm && confirm !== password && <div className="text-[11px] text-rose-300">Passwords don't match yet.</div>}
-                </div>
-
-                {error && <div className="text-sm text-rose-300">{error}</div>}
-
-                <button type="submit" disabled={loading} className="mt-2 px-5 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple disabled:opacity-50">
-                  {loading ? 'Updating…' : 'Update Password'}
-                </button>
-              </form>
-            </>
-          )}
-
-          {step === 'success' && (
-            <>
-              <div className="w-14 h-14 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center">
-                <Check size={24} />
-              </div>
-              <h1 className="font-display font-semibold text-2xl mb-2">Password updated</h1>
-              <p className="text-white/55 text-sm leading-relaxed mb-8">Your password has been changed successfully. Sign in with your new password.</p>
-              <button
-                onClick={() => navigate('/login')}
-                className="px-5 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple hover:-translate-y-0.5 transition-transform"
-              >
-                Back to Login
-              </button>
             </>
           )}
         </Reveal>

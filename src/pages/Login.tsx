@@ -13,13 +13,19 @@ export default function Login() {
   // for the public Events page: a logged-out visitor who clicked an
   // event to register is sent here with both, and after a successful
   // login is sent back to that exact event (see Events.tsx).
-  const location = useLocation() as { state?: { from?: string; eventId?: string } }
+  const location = useLocation() as { state?: { from?: string; eventId?: string; message?: string } }
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [unverified, setUnverified] = useState(false)
   const [resent, setResent] = useState(false)
   const [loading, setLoading] = useState(false)
+  // One-shot confirmation banner (e.g. "Password updated successfully")
+  // handed over via navigate(..., { state: { message } }) from a prior
+  // page — ResetPassword.tsx is the current sender. Read once on mount
+  // via useState's initializer, not on every render, so it doesn't
+  // reappear if the user navigates away and back without a fresh state.
+  const [successMessage] = useState(location.state?.message ?? null)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -86,7 +92,13 @@ export default function Login() {
         <Reveal>
           <div className="flex justify-center mb-5"><MonadMark size={40} /></div>
           <h1 className="font-display font-semibold text-3xl mb-2 text-center">Welcome back</h1>
-          <p className="text-white/50 text-sm text-center mb-10">Log in to your Monad Africa account</p>
+          <p className="text-white/50 text-sm text-center mb-6">Log in to your Monad Africa account</p>
+
+          {successMessage && (
+            <div className="mb-4 text-sm text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 rounded-xl px-4 py-3 text-center">
+              {successMessage}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">

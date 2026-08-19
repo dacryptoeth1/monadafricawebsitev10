@@ -15,6 +15,20 @@ import MonadMark from '../components/MonadMark'
 // used link).
 type RecoveryStatus = 'checking' | 'ready' | 'invalid'
 
+// Supabase reports a genuinely expired/already-used recovery link by
+// appending its own error info to the redirect URL — as a `#error=...`
+// hash (implicit flow) or a `?error=...` query string (PKCE flow, or when
+// the /verify step itself fails before it can redirect with a token at
+// all). Merge both so we catch it regardless of which flow the project is
+// configured for.
+function getUrlAuthError(): string | null {
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
+  const params = new URLSearchParams(window.location.search)
+  new URLSearchParams(hash).forEach((value, key) => params.set(key, value))
+  const reason = params.get('error_description') || params.get('error_code') || params.get('error')
+  return reason ? decodeURIComponent(reason.replace(/\+/g, ' ')) : null
+}
+
 function scorePassword(pw: string) {
   let score = 0
   if (pw.length >= 8) score++
@@ -31,6 +45,7 @@ const STRENGTH_COLORS = ['bg-rose-400', 'bg-rose-400', 'bg-amber-400', 'bg-gold'
 export default function ResetPassword() {
   const navigate = useNavigate()
   const [recoveryStatus, setRecoveryStatus] = useState<RecoveryStatus>('checking')
+  const [invalidReason, setInvalidReason] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -48,6 +63,17 @@ export default function ResetPassword() {
   useEffect(() => {
     let settled = false
 
+    // Check first for an error Supabase itself put in the URL — a
+    // genuinely expired or already-used link. That's an authoritative
+    // "invalid", so it short-circuits everything else below rather than
+    // racing the auth-state listener or waiting out the timeout.
+    const urlError = getUrlAuthError()
+    if (urlError) {
+      setInvalidReason(urlError)
+      setRecoveryStatus('invalid')
+      return
+    }
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (settled) return
       if (event === 'PASSWORD_RECOVERY' || session) {
@@ -63,9 +89,14 @@ export default function ResetPassword() {
       }
     })
 
+    // Generous timeout: exchanging the PKCE `?code=` param for a session
+    // is a real network round trip (slower than the implicit
+    // `#access_token=` flow supabase-js also supports), so a short window
+    // here can misreport a link that's still being processed as invalid.
+    // 10s gives that exchange room to land before giving up for real.
     const timeout = setTimeout(() => {
       if (!settled) setRecoveryStatus('invalid')
-    }, 3000)
+    }, 10000)
 
     return () => {
       sub.subscription.unsubscribe()
@@ -105,7 +136,10 @@ export default function ResetPassword() {
       await supabase.auth.signOut()
 
       setDone(true)
-      setTimeout(() => navigate('/login'), 2000)
+      setTimeout(
+        () => navigate('/login', { state: { message: 'Password updated successfully. You can now log in.' } }),
+        1500,
+      )
     } catch (err: any) {
       setError(err?.message || 'Something went wrong updating your password. Please try again.')
     } finally {
@@ -133,7 +167,8 @@ export default function ResetPassword() {
               </div>
               <h1 className="font-display font-semibold text-2xl mb-2">This link isn't valid</h1>
               <p className="text-white/55 text-sm leading-relaxed mb-8">
-                It may have expired or already been used. Request a fresh password reset link and try again.
+                {invalidReason || 'It may have expired or already been used.'} Request a fresh password reset link
+                and try again.
               </p>
               <Link
                 to="/forgot-password"
