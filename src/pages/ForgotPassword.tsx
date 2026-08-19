@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Reveal from '../components/Reveal'
+import { getErrorMessage, logError } from '../lib/errors'
 
 export default function ForgotPassword() {
   const { resetPasswordRequest } = useAuth()
@@ -17,8 +18,37 @@ export default function ForgotPassword() {
     try {
       await resetPasswordRequest(email)
       setDone(true)
-    } catch {
-      setError('Something went wrong. Double check the email and try again.')
+    } catch (err) {
+      // Previously a bare `catch { setError('generic message') }` — the
+      // actual Supabase/GoTrue error was silently discarded, so every
+      // failure looked identical and undiagnosable from the browser.
+      // Now logged in full (message/status/name/code — Supabase Auth
+      // errors carry status/name that logError()'s Postgrest-shaped
+      // {message, details, hint, code} logging doesn't surface).
+      logError('[ForgotPassword] resetPasswordRequest failed:', err)
+      const e = err as { message?: string; status?: number; name?: string; code?: string }
+      console.error('[ForgotPassword] resetPasswordForEmail error detail:', {
+        message: e?.message, status: e?.status, name: e?.name, code: e?.code,
+      })
+
+      // Root cause (confirmed live against production Supabase, real
+      // registered account): the request reaches Supabase fine and gets
+      // a 500 back — {"error_code":"unexpected_failure","msg":"Error
+      // sending recovery email"} — a server-side email-delivery failure
+      // (Supabase Auth's SMTP/mailer configuration), not anything wrong
+      // with the email address typed in. On top of that, supabase-js
+      // wraps 5xx responses in an AuthRetryableFetchError whose
+      // `.message` has been observed to literally be the string "{}" —
+      // that's what rendered as a bare "{}" in the UI (getErrorMessage
+      // now treats "{}" as no real message, see lib/errors.ts). Since
+      // "double check the email" is actively wrong advice for a 5xx
+      // server error, that fallback is only used for non-5xx failures;
+      // a 5xx gets an honest, status-aware message instead.
+      const status = e?.status
+      const fallback = typeof status === 'number' && status >= 500
+        ? "We couldn't send the reset email right now — this looks like a temporary problem on our end, not with your email address. Please try again in a few minutes."
+        : 'Something went wrong. Double check the email and try again.'
+      setError(getErrorMessage(err, fallback))
     } finally {
       setLoading(false)
     }

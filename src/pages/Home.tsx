@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Boxes, CalendarDays, ChevronLeft, ChevronRight, ExternalLink, Handshake, Newspaper, Target, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -34,7 +34,6 @@ export default function Home() {
   const [registeredUsers, setRegisteredUsers] = useState(0)
   const [completedBounties, setCompletedBounties] = useState(0)
   const [ecosystemProjects, setEcosystemProjects] = useState<EcosystemProject[] | null>(null)
-  const [featuredProjects, setFeaturedProjects] = useState<EcosystemProject[] | null>(null)
   const [partners, setPartners] = useState<Partner[] | null>(null)
   const [events, setEvents] = useState<EventItem[] | null>(null)
   const [news, setNews] = useState<NewsItem[] | null>(null)
@@ -90,10 +89,19 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    // One request instead of two: the featured carousel only ever needs
+    // a filtered view of the same `projects` rows the logo grid below
+    // already fetches in full (both order by created_at desc), so it's
+    // derived client-side (see featuredProjects below) instead of
+    // re-querying the same table with an extra is_featured=true filter.
     supabase.from('projects').select('*').order('created_at', { ascending: false }).then(({ data }) => setEcosystemProjects((data as EcosystemProject[]) ?? []))
-    supabase.from('projects').select('*').eq('is_featured', true).order('created_at', { ascending: false }).then(({ data }) => setFeaturedProjects((data as EcosystemProject[]) ?? []))
     supabase.from('partners').select('*').order('created_at', { ascending: false }).then(({ data }) => setPartners((data as Partner[]) ?? []))
   }, [])
+
+  const featuredProjects = useMemo(
+    () => (ecosystemProjects === null ? null : ecosystemProjects.filter((p) => p.is_featured)),
+    [ecosystemProjects],
+  )
 
   return (
     <>

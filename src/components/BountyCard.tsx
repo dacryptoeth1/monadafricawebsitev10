@@ -41,7 +41,15 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
     <>
       <motion.div
         whileHover={{ y: -4 }}
-        className="rounded-squircle border border-white/10 bg-panel/60 backdrop-blur p-6 flex flex-col gap-4 hover:border-purple/40 transition-colors h-full"
+        // No backdrop-blur here (unlike this file's modal overlay below):
+        // this card repeats N times in the /bounties grid and the
+        // homepage preview, and unlike a one-off modal backdrop, a
+        // blur-behind-content on every card in a scrolling list forces
+        // the browser to recompute that blur continuously as the page
+        // scrolls — a real, well-documented mobile GPU cost. Bumped the
+        // panel opacity instead (60% -> 85%) so the card still reads as
+        // solid rather than see-through without the blur.
+        className="rounded-squircle border border-white/10 bg-panel/85 p-6 flex flex-col gap-4 hover:border-purple/40 transition-colors h-full"
       >
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0">
