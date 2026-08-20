@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase, supabaseAnonKey, supabaseUrl } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import type { AdminRole, Profile } from '../types'
 
 interface SignUpFields {
@@ -194,69 +194,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function resetPasswordRequest(email: string) {
-    // Calls Supabase Auth's own resetPasswordForEmail() directly — this
-    // needs nothing but the anon/publishable key that was already
-    // safely client-side. Password reset is entirely OTP-based (see
-    // verifyPasswordResetOtp below): the user types the 6-digit code
-    // from the email, never clicks a link, so there's deliberately no
-    // `redirectTo` here — that option only matters for the link-based
-    // flow this app no longer uses, and dropping it also removes the
-    // whole "redirectTo must exactly match an allow-listed URL or
-    // Supabase silently falls back to the Site URL" failure mode that
-    // caused several rounds of "the link opens the homepage" bugs
-    // before. Email delivery is Supabase's Auth SMTP configuration's
-    // responsibility (Supabase dashboard → Authentication → Emails →
-    // SMTP Settings, pointed at Resend) — nothing here sends mail
-    // itself.
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
-    if (!error) return
+    // Deliberately NOT supabase.auth.resetPasswordForEmail(). That call
+    // sends Supabase's own built-in "Reset Password" auth email, whose
+    // content comes from a template Supabase only lets you edit once
+    // Custom SMTP is enabled on the project — this project intentionally
+    // isn't doing that, so that template is permanently stuck on
+    // Supabase's default, link-based version no matter what's in
+    // supabase/email-templates/. Instead, this calls our own Netlify
+    // Function (netlify/functions/password-reset-request.ts), which
+    // mints the exact same underlying Supabase recovery OTP via the
+    // Admin API (auth.admin.generateLink) and emails it directly via
+    // Resend — bypassing Supabase's locked template entirely while
+    // still using Supabase's own OTP end to end. verifyPasswordResetOtp
+    // below is completely unchanged: it verifies that OTP through
+    // Supabase's own supabase.auth.verifyOtp(type: 'recovery'), not a
+    // custom system.
+    const res = await fetch('/.netlify/functions/password-reset-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    if (res.ok) return
 
-    // supabase-js wraps a 5xx response from /auth/v1/recover as an
-    // AuthRetryableFetchError whose `.message` has been observed to be
-    // the literal string "{}" — the SDK deliberately doesn't parse the
-    // body for responses it treats as "retryable", so Supabase's actual
-    // error_code/msg (e.g. "unexpected_failure" / "Error sending
-    // recovery email" — exactly the SMTP-misconfiguration failure this
-    // flow hit before, see the removed-Netlify-Function history above)
-    // never reaches the UI, and getErrorMessage() (src/lib/errors.ts)
-    // has no real message to fall back to other than a generic one.
-    // Recover the real body with one direct fetch to the same endpoint
-    // the SDK just called, so the actual Supabase error is what gets
-    // shown/logged instead of a guess. Only worth doing when the SDK's
-    // own message is genuinely useless — a well-formed error (e.g. a
-    // 429 rate limit, which supabase-js parses correctly) shouldn't
-    // trigger a second network call.
-    const sdkMessage = (error.message || '').trim().toLowerCase()
-    if (sdkMessage && sdkMessage !== '{}' && sdkMessage !== '[object object]') {
-      throw error
-    }
-
-    let detailMessage: string | undefined
-    let detailCode: string | undefined
-    let detailStatus: number | undefined
-    try {
-      const res = await fetch(`${supabaseUrl}/auth/v1/recover`, {
-        method: 'POST',
-        headers: { apikey: supabaseAnonKey, Authorization: `Bearer ${supabaseAnonKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      if (!res.ok) {
-        const detail = await res.json().catch(() => null)
-        detailMessage = detail?.msg || detail?.message
-        detailCode = detail?.error_code
-        detailStatus = res.status
-      }
-    } catch {
-      // The enrichment attempt itself failed (network blip, etc.) —
-      // fall through and throw the SDK's original error below instead.
-    }
-
-    if (detailMessage) {
-      const enriched = new Error(`${detailMessage}${detailCode ? ` (${detailCode})` : ''}`)
-      ;(enriched as { status?: number }).status = detailStatus
-      throw enriched
-    }
-    throw error
+    const detail = await res.json().catch(() => null)
+    const message =
+      detail?.error === 'invalid_email'
+        ? 'Enter a valid email address.'
+        : detail?.error === 'cooldown'
+          ? "You're requesting codes too quickly. Please wait a moment and try again."
+          : 'Something went wrong sending the code. Please try again.'
+    const enriched = new Error(message) as Error & { status?: number; retry_after_seconds?: number }
+    enriched.status = res.status
+    if (typeof detail?.retry_after_seconds === 'number') enriched.retry_after_seconds = detail.retry_after_seconds
+    throw enriched
   }
 
   // Exchanges the 6-digit code from the "Reset Password" email for a

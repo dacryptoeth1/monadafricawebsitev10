@@ -9,13 +9,17 @@ import { getErrorMessage, logError } from '../lib/errors'
 // Password reset via a 6-digit code — no link, no separate /reset-password
 // route. This is the ONLY password-recovery flow in the app (the old
 // link-based one, and its /reset-password route, were removed so there
-// aren't two competing systems). Uses Supabase Auth's own native OTP
-// recovery end to end (resetPasswordForEmail + verifyOtp(type:'recovery'),
-// both in AuthContext.tsx) — no custom OTP table, no server function, so
-// it inherits Supabase's single-use/expiry/rate-limit guarantees on the
-// code itself. The "Reset Password" email template in Supabase Dashboard
-// → Authentication → Emails must render {{ .Token }} (NOT
-// {{ .ConfirmationURL }}) — see supabase/email-templates/reset-password-otp.html.
+// aren't two competing systems). The code itself is a real Supabase Auth
+// recovery OTP end to end — verifyPasswordResetOtp and updatePassword
+// (both in AuthContext.tsx) call Supabase's own verifyOtp(type:'recovery')
+// and updateUser() directly, no custom OTP table. The one piece that
+// ISN'T a direct Supabase Auth client call is requesting the code:
+// resetPasswordRequest (AuthContext.tsx) calls
+// netlify/functions/password-reset-request.ts, a small server-side
+// function that mints the OTP via Supabase's Admin API and emails it via
+// Resend — necessary because Supabase's built-in "Reset Password" email
+// only renders its default, link-based template until Custom SMTP is
+// enabled on the project, which this project deliberately isn't doing.
 
 type Step = 'email' | 'code' | 'password' | 'success'
 
