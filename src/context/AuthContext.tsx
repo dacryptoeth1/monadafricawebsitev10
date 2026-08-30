@@ -193,40 +193,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  // Supabase Auth's native 6-digit-code recovery flow — anon-key-only,
+  // no service-role key, no server-side function, no redirect/link
+  // involved at all. This sends Supabase's own built-in "Reset
+  // Password" auth email (SMTP is Resend, configured as Custom SMTP in
+  // the Supabase dashboard, which is also what unlocked editing that
+  // email's template). The template must render {{ .Token }} — the
+  // real 6-digit numeric OTP GoTrue generates for this email — and NOT
+  // {{ .ConfirmationURL }} (a link) or {{ .TokenHash }} (a long hash
+  // meant for URLs, not for a human to type in). verifyPasswordResetOtp
+  // below exchanges that same code for a real recovery session via
+  // Supabase's own supabase.auth.verifyOtp({ type: 'recovery' }).
   async function resetPasswordRequest(email: string) {
-    // Deliberately NOT supabase.auth.resetPasswordForEmail(). That call
-    // sends Supabase's own built-in "Reset Password" auth email, whose
-    // content comes from a template Supabase only lets you edit once
-    // Custom SMTP is enabled on the project — this project intentionally
-    // isn't doing that, so that template is permanently stuck on
-    // Supabase's default, link-based version no matter what's in
-    // supabase/email-templates/. Instead, this calls our own Netlify
-    // Function (netlify/functions/password-reset-request.ts), which
-    // mints the exact same underlying Supabase recovery OTP via the
-    // Admin API (auth.admin.generateLink) and emails it directly via
-    // Resend — bypassing Supabase's locked template entirely while
-    // still using Supabase's own OTP end to end. verifyPasswordResetOtp
-    // below is completely unchanged: it verifies that OTP through
-    // Supabase's own supabase.auth.verifyOtp(type: 'recovery'), not a
-    // custom system.
-    const res = await fetch('/.netlify/functions/password-reset-request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
-    if (res.ok) return
-
-    const detail = await res.json().catch(() => null)
-    const message =
-      detail?.error === 'invalid_email'
-        ? 'Enter a valid email address.'
-        : detail?.error === 'cooldown'
-          ? "You're requesting codes too quickly. Please wait a moment and try again."
-          : 'Something went wrong sending the code. Please try again.'
-    const enriched = new Error(message) as Error & { status?: number; retry_after_seconds?: number }
-    enriched.status = res.status
-    if (typeof detail?.retry_after_seconds === 'number') enriched.retry_after_seconds = detail.retry_after_seconds
-    throw enriched
+    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    if (error) throw error
   }
 
   // Exchanges the 6-digit code from the "Reset Password" email for a

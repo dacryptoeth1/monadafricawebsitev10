@@ -1,5 +1,6 @@
 import { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
+import { MotionConfig } from 'framer-motion'
 import { AuthProvider } from './context/AuthContext'
 import Layout from './components/Layout'
 import RequireAuth from './components/RequireAuth'
@@ -41,72 +42,81 @@ function PageFallback() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Suspense fallback={<PageFallback />}>
-        <Routes>
-          {/* /admin is intentionally outside the public Layout — no nav
-              link anywhere points to it. */}
-          <Route path="/admin" element={<AdminRoute />} />
+    // reducedMotion="user" makes every framer-motion animation in the
+    // app (Reveal's scroll-in, dropdown/modal enter-exit, card hover
+    // lift, ...) automatically drop its transform (x/y/scale/rotate)
+    // component for anyone with the OS-level "reduce motion"
+    // accessibility setting on, while still cross-fading opacity — one
+    // root-level flag instead of auditing/guarding every individual
+    // motion.* usage across the app.
+    <MotionConfig reducedMotion="user">
+      <AuthProvider>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            {/* /admin is intentionally outside the public Layout — no nav
+                link anywhere points to it. */}
+            <Route path="/admin" element={<AdminRoute />} />
 
-          <Route
-            path="*"
-            element={
-              <Layout>
-                <Suspense fallback={<PageFallback />}>
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/community" element={<Community />} />
-                    <Route path="/leaderboard" element={<Leaderboard />} />
-                    <Route path="/bounties" element={<Bounties />} />
-                    <Route path="/events" element={<Events />} />
-                    <Route path="/host-bounty" element={<HostBounty />} />
-                    <Route path="/beginner-hub" element={<BeginnerHub />} />
-                    <Route path="/ecosystem" element={<Ecosystem />} />
-                    <Route path="/partners" element={<Partners />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <RequireAuth>
-                          <Dashboard />
-                        </RequireAuth>
-                      }
-                    />
-                    <Route
-                      path="/profile"
-                      element={
-                        <RequireAuth>
-                          <Profile />
-                        </RequireAuth>
-                      }
-                    />
-                    <Route
-                      path="/settings"
-                      element={
-                        <RequireAuth>
-                          <Settings />
-                        </RequireAuth>
-                      }
-                    />
-                    <Route
-                      path="/activity"
-                      element={
-                        <RequireAuth>
-                          <ActivityHistory />
-                        </RequireAuth>
-                      }
-                    />
-                  </Routes>
-                </Suspense>
-              </Layout>
-            }
-          />
-        </Routes>
-      </Suspense>
-    </AuthProvider>
+            <Route
+              path="*"
+              element={
+                <Layout>
+                  <Suspense fallback={<PageFallback />}>
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/about" element={<About />} />
+                      <Route path="/community" element={<Community />} />
+                      <Route path="/leaderboard" element={<Leaderboard />} />
+                      <Route path="/bounties" element={<Bounties />} />
+                      <Route path="/events" element={<Events />} />
+                      <Route path="/host-bounty" element={<HostBounty />} />
+                      <Route path="/beginner-hub" element={<BeginnerHub />} />
+                      <Route path="/ecosystem" element={<Ecosystem />} />
+                      <Route path="/partners" element={<Partners />} />
+                      <Route path="/contact" element={<Contact />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/signup" element={<Signup />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route
+                        path="/dashboard"
+                        element={
+                          <RequireAuth>
+                            <Dashboard />
+                          </RequireAuth>
+                        }
+                      />
+                      <Route
+                        path="/profile"
+                        element={
+                          <RequireAuth>
+                            <Profile />
+                          </RequireAuth>
+                        }
+                      />
+                      <Route
+                        path="/settings"
+                        element={
+                          <RequireAuth>
+                            <Settings />
+                          </RequireAuth>
+                        }
+                      />
+                      <Route
+                        path="/activity"
+                        element={
+                          <RequireAuth>
+                            <ActivityHistory />
+                          </RequireAuth>
+                        }
+                      />
+                    </Routes>
+                  </Suspense>
+                </Layout>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </AuthProvider>
+    </MotionConfig>
   )
 }

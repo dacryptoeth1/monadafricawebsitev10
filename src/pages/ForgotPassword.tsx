@@ -6,25 +6,31 @@ import Reveal from '../components/Reveal'
 import MonadMark from '../components/MonadMark'
 import { getErrorMessage, logError } from '../lib/errors'
 
-// Password reset via a 6-digit code — no link, no separate /reset-password
-// route. This is the ONLY password-recovery flow in the app (the old
-// link-based one, and its /reset-password route, were removed so there
-// aren't two competing systems). The code itself is a real Supabase Auth
-// recovery OTP end to end — verifyPasswordResetOtp and updatePassword
-// (both in AuthContext.tsx) call Supabase's own verifyOtp(type:'recovery')
-// and updateUser() directly, no custom OTP table. The one piece that
-// ISN'T a direct Supabase Auth client call is requesting the code:
-// resetPasswordRequest (AuthContext.tsx) calls
-// netlify/functions/password-reset-request.ts, a small server-side
-// function that mints the OTP via Supabase's Admin API and emails it via
-// Resend — necessary because Supabase's built-in "Reset Password" email
-// only renders its default, link-based template until Custom SMTP is
-// enabled on the project, which this project deliberately isn't doing.
+// Password reset via an 8-digit code — no link, no separate
+// /reset-password route. This is the ONLY password-recovery flow in
+// the app. Every step is a direct, native Supabase Auth client call,
+// anon key only — resetPasswordRequest, verifyPasswordResetOtp, and
+// updatePassword (all in AuthContext.tsx) call Supabase's own
+// resetPasswordForEmail(), verifyOtp(type:'recovery'), and
+// updateUser() respectively. No server-side function or service-role
+// key is involved. The Supabase project's Auth SMTP is Resend (Custom
+// SMTP, configured in the Supabase dashboard) — that's what unlocked
+// editing the "Reset Password" email template, which must render
+// {{ .Token }} (this project's Supabase Auth settings generate an
+// 8-digit numeric OTP, not Supabase's 6-digit default — see
+// CODE_LENGTH below) and NOT {{ .ConfirmationURL }} or {{ .TokenHash }}.
 
 type Step = 'email' | 'code' | 'password' | 'success'
 
 const RESEND_COOLDOWN_SECONDS = 60
 const MAX_CODE_ATTEMPTS = 5
+// Matches this Supabase project's configured OTP length (Authentication
+// settings), not verifyOtp()'s default — verifyOtp() itself doesn't
+// care about length, it just matches whatever string was requested
+// against whatever Supabase actually generated, so this only needs to
+// agree with the dashboard config for the input/validation to accept a
+// real code.
+const CODE_LENGTH = 8
 
 function scorePassword(pw: string) {
   let score = 0
@@ -181,7 +187,7 @@ export default function ForgotPassword() {
           {step === 'email' && (
             <>
               <h1 className="font-display font-semibold text-2xl mb-2">Forgot Password</h1>
-              <p className="text-white/50 text-sm mb-8">Enter your email and we'll send you a 6-digit verification code.</p>
+              <p className="text-white/50 text-sm mb-8">Enter your email and we'll send you an 8-digit verification code.</p>
               <form onSubmit={requestCode} className="flex flex-col gap-4 text-left">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Email</label>
@@ -204,22 +210,22 @@ export default function ForgotPassword() {
               </p>
               <form onSubmit={handleVerifyCode} className="flex flex-col gap-4 text-left">
                 <div className="flex flex-col gap-1.5">
-                  <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">6-digit code</label>
+                  <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">8-digit code</label>
                   <input
                     value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))}
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     autoFocus
-                    placeholder="000000"
-                    maxLength={6}
-                    className="input text-center tracking-[0.4em] font-mono text-lg"
+                    placeholder="00000000"
+                    maxLength={CODE_LENGTH}
+                    className="input text-center tracking-[0.3em] font-mono text-lg"
                   />
                 </div>
                 {error && <div className="text-sm text-rose-300">{error}</div>}
                 <button
                   type="submit"
-                  disabled={loading || code.length !== 6 || attemptsRemaining <= 0}
+                  disabled={loading || code.length !== CODE_LENGTH || attemptsRemaining <= 0}
                   className="mt-2 px-5 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple disabled:opacity-50"
                 >
                   {loading ? 'Verifying…' : 'Verify Code'}

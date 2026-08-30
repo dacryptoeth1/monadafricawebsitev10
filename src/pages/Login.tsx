@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Reveal from '../components/Reveal'
@@ -6,7 +6,7 @@ import PasswordField from '../components/PasswordField'
 import MonadMark from '../components/MonadMark'
 
 export default function Login() {
-  const { signIn, resendVerificationEmail } = useAuth()
+  const { signIn, resendVerificationEmail, session, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   // `from` is the existing redirect-after-login target (set by
   // RequireAuth for gated routes). `eventId` is the same idea extended
@@ -26,6 +26,35 @@ export default function Login() {
   // via useState's initializer, not on every render, so it doesn't
   // reappear if the user navigates away and back without a fresh state.
   const [successMessage] = useState(location.state?.message ?? null)
+  // Signup confirmation and email-change confirmation links both use
+  // emailRedirectTo: `${origin}/login` (see AuthContext.tsx) instead of
+  // Supabase's default, so they land here instead of on the homepage —
+  // but with detectSessionInUrl:true (src/lib/supabase.ts), supabase-js
+  // silently consumes the #access_token=...&type=signup/email_change
+  // fragment and establishes a session before this component even
+  // renders, leaving the user staring at an empty login form with a
+  // long token in the address bar and zero indication anything just
+  // happened. This detects that fragment, strips it from the visible
+  // URL, and once the now-active session shows up, forwards to the
+  // dashboard with an explicit "you're verified" message instead.
+  const [confirming, setConfirming] = useState(false)
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash) return
+    const hashParams = new URLSearchParams(hash.slice(1))
+    const type = hashParams.get('type')
+    if (hashParams.get('access_token') && (type === 'signup' || type === 'email_change')) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      setConfirming(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (confirming && session) {
+      navigate('/dashboard', { state: { message: 'Email verified! Welcome to Monad Africa.' } })
+    }
+  }, [confirming, session, navigate])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -98,6 +127,18 @@ export default function Login() {
             <div className="mb-4 text-sm text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 rounded-xl px-4 py-3 text-center">
               {successMessage}
             </div>
+          )}
+
+          {confirming && !session && (
+            authLoading ? (
+              <div className="mb-4 text-sm text-white/50 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center">
+                Confirming your email…
+              </div>
+            ) : (
+              <div className="mb-4 text-sm text-rose-300 bg-rose-400/10 border border-rose-400/25 rounded-xl px-4 py-3 text-center">
+                This confirmation link is invalid or has expired. Please try logging in below, or sign up again.
+              </div>
+            )
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
