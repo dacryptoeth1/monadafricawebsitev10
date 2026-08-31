@@ -3,6 +3,10 @@ import { UploadCloud } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { BountyCategory, BountyDifficulty } from '../types'
 import Reveal from '../components/Reveal'
+<<<<<<< HEAD
+=======
+import { getErrorMessage, logError } from '../lib/errors'
+>>>>>>> fix/password-reset-otp-admin-api
 
 const CATEGORIES: BountyCategory[] = ['Development', 'Design', 'Marketing', 'Community', 'Content']
 const DIFFICULTIES: BountyDifficulty[] = ['easy', 'medium', 'hard']
@@ -72,8 +76,20 @@ export default function HostBounty() {
       form.reset()
       setLogoFile(null)
       setLogoPreview(null)
+<<<<<<< HEAD
     } catch {
       setError('Something went wrong submitting this — please try again in a moment.')
+=======
+    } catch (err) {
+      // Previously a bare `catch { setError('generic message') }` — the
+      // actual Supabase/Postgrest error (e.g. a missing-column
+      // PGRST204, an RLS denial, a storage upload failure) was silently
+      // discarded instead of logged, making this exact class of bug
+      // undiagnosable from the browser console. Now logged in full and
+      // surfaced to the user when it adds real information.
+      logError('[HostBounty] bounty submission failed:', err)
+      setError(getErrorMessage(err, 'Something went wrong submitting this — please try again in a moment.'))
+>>>>>>> fix/password-reset-otp-admin-api
     } finally {
       setSubmitting(false)
     }

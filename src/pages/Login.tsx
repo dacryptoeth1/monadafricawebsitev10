@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { type FormEvent, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -11,10 +12,70 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+=======
+import { type FormEvent, useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import Reveal from '../components/Reveal'
+import PasswordField from '../components/PasswordField'
+import MonadMark from '../components/MonadMark'
+
+export default function Login() {
+  const { signIn, resendVerificationEmail, session, loading: authLoading } = useAuth()
+  const navigate = useNavigate()
+  // `from` is the existing redirect-after-login target (set by
+  // RequireAuth for gated routes). `eventId` is the same idea extended
+  // for the public Events page: a logged-out visitor who clicked an
+  // event to register is sent here with both, and after a successful
+  // login is sent back to that exact event (see Events.tsx).
+  const location = useLocation() as { state?: { from?: string; eventId?: string; message?: string } }
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [unverified, setUnverified] = useState(false)
+  const [resent, setResent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  // One-shot confirmation banner (e.g. "Password updated successfully")
+  // handed over via navigate(..., { state: { message } }) from a prior
+  // page — ForgotPassword.tsx is the current sender. Read once on mount
+  // via useState's initializer, not on every render, so it doesn't
+  // reappear if the user navigates away and back without a fresh state.
+  const [successMessage] = useState(location.state?.message ?? null)
+  // Signup confirmation and email-change confirmation links both use
+  // emailRedirectTo: `${origin}/login` (see AuthContext.tsx) instead of
+  // Supabase's default, so they land here instead of on the homepage —
+  // but with detectSessionInUrl:true (src/lib/supabase.ts), supabase-js
+  // silently consumes the #access_token=...&type=signup/email_change
+  // fragment and establishes a session before this component even
+  // renders, leaving the user staring at an empty login form with a
+  // long token in the address bar and zero indication anything just
+  // happened. This detects that fragment, strips it from the visible
+  // URL, and once the now-active session shows up, forwards to the
+  // dashboard with an explicit "you're verified" message instead.
+  const [confirming, setConfirming] = useState(false)
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash) return
+    const hashParams = new URLSearchParams(hash.slice(1))
+    const type = hashParams.get('type')
+    if (hashParams.get('access_token') && (type === 'signup' || type === 'email_change')) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      setConfirming(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (confirming && session) {
+      navigate('/dashboard', { state: { message: 'Email verified! Welcome to Monad Africa.' } })
+    }
+  }, [confirming, session, navigate])
+>>>>>>> fix/password-reset-otp-admin-api
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+<<<<<<< HEAD
     setLoading(true)
     try {
       await signIn(email, password)
@@ -23,6 +84,61 @@ export default function Login() {
       setError('Invalid email or password.')
     } finally {
       setLoading(false)
+=======
+    setUnverified(false)
+    setResent(false)
+    setLoading(true)
+
+    try {
+      await signIn(email, password)
+    } catch (err: any) {
+      setLoading(false)
+      const message = String(err?.message || '')
+      console.error('[Login] signIn failed:', err)
+      if (message.toLowerCase().includes('email not confirmed')) {
+        setUnverified(true)
+      } else if (message.toLowerCase().includes('invalid login credentials') || message.toLowerCase().includes('invalid email or password')) {
+        // Supabase's actual message for a genuinely wrong email/password.
+        setError('Invalid email or password.')
+      } else if (message.toLowerCase().includes('failed to fetch') || message.toLowerCase().includes('network')) {
+        // A raw browser fetch failure — the request to Supabase never
+        // completed at all (wrong/unreachable project URL, no network,
+        // or a CORS block). This is never a credentials problem; check
+        // the console.log this module's src/lib/supabase.ts prints on
+        // load ("[supabase] Using project URL: ...") against the
+        // correct project in the Supabase dashboard.
+        setError('Could not reach the authentication server. Check your internet connection — if this keeps happening, the site may be misconfigured (see console for details).')
+      } else {
+        // Anything else (rate limit, project/config issue, etc.) is a
+        // real, different problem — show what Supabase actually said
+        // instead of misreporting it as wrong credentials, which was
+        // the bug reported: correct credentials producing a false
+        // "Invalid email or password".
+        setError(message || 'Something went wrong signing in — please try again.')
+      }
+      return
+    }
+
+    // Deliberately outside the try/catch above: sign-in already
+    // succeeded at this point, so any issue with the navigation call
+    // itself must never be mislabeled as "Invalid email or password" —
+    // that previously happened because navigate() shared the same
+    // catch block as signIn(), which could report a successful login
+    // as a credentials failure.
+    const eventId = location.state?.eventId
+    navigate(location.state?.from || '/dashboard', eventId ? { state: { openEventId: eventId } } : undefined)
+    // Not resetting `loading` here on purpose — the page is navigating
+    // away, so leaving the button in its loading state avoids a
+    // one-frame flash back to "Log In" right before the transition.
+  }
+
+  async function handleResend() {
+    try {
+      await resendVerificationEmail(email)
+      setResent(true)
+    } catch {
+      setError('Could not resend the verification email — try again shortly.')
+>>>>>>> fix/password-reset-otp-admin-api
     }
   }
 
@@ -30,8 +146,32 @@ export default function Login() {
     <section className="pt-36 pb-28 min-h-screen flex items-center">
       <div className="max-w-sm mx-auto px-6 w-full">
         <Reveal>
+<<<<<<< HEAD
           <h1 className="font-display font-semibold text-3xl mb-2 text-center">Welcome back</h1>
           <p className="text-white/50 text-sm text-center mb-10">Log in to your Monad Africa account</p>
+=======
+          <div className="flex justify-center mb-5"><MonadMark size={40} /></div>
+          <h1 className="font-display font-semibold text-3xl mb-2 text-center">Welcome back</h1>
+          <p className="text-white/50 text-sm text-center mb-6">Log in to your Monad Africa account</p>
+
+          {successMessage && (
+            <div className="mb-4 text-sm text-emerald-300 bg-emerald-400/10 border border-emerald-400/25 rounded-xl px-4 py-3 text-center">
+              {successMessage}
+            </div>
+          )}
+
+          {confirming && !session && (
+            authLoading ? (
+              <div className="mb-4 text-sm text-white/50 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-center">
+                Confirming your email…
+              </div>
+            ) : (
+              <div className="mb-4 text-sm text-rose-300 bg-rose-400/10 border border-rose-400/25 rounded-xl px-4 py-3 text-center">
+                This confirmation link is invalid or has expired. Please try logging in below, or sign up again.
+              </div>
+            )
+          )}
+>>>>>>> fix/password-reset-otp-admin-api
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -43,9 +183,30 @@ export default function Login() {
                 <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Password</label>
                 <Link to="/forgot-password" className="text-xs text-purple-light hover:text-white transition-colors">Forgot?</Link>
               </div>
+<<<<<<< HEAD
               <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="input" />
             </div>
             {error && <div className="text-sm text-rose-300">{error}</div>}
+=======
+              <PasswordField name="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+
+            {error && <div className="text-sm text-rose-300">{error}</div>}
+
+            {unverified && (
+              <div className="text-sm text-amber-300 bg-amber-300/10 border border-amber-300/25 rounded-xl px-4 py-3">
+                Your email isn't verified yet.{' '}
+                {resent ? (
+                  'A new link is on its way — check your inbox.'
+                ) : (
+                  <button type="button" onClick={handleResend} className="underline font-semibold">
+                    Resend verification email
+                  </button>
+                )}
+              </div>
+            )}
+
+>>>>>>> fix/password-reset-otp-admin-api
             <button type="submit" disabled={loading} className="mt-2 px-5 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple disabled:opacity-50 hover:-translate-y-0.5 transition-transform">
               {loading ? 'Signing in…' : 'Log In'}
             </button>

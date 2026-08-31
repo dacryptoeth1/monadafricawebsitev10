@@ -5,23 +5,40 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+<<<<<<< HEAD
+=======
+    "dev:netlify": "netlify dev",
+>>>>>>> fix/password-reset-otp-admin-api
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
+<<<<<<< HEAD
+=======
+    "country-state-city": "^3.2.1",
+>>>>>>> fix/password-reset-otp-admin-api
     "framer-motion": "^11.5.4",
     "lucide-react": "^0.441.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+<<<<<<< HEAD
     "react-router-dom": "^6.26.2"
+=======
+    "react-router-dom": "^6.26.2",
+    "recharts": "^3.10.1"
+>>>>>>> fix/password-reset-otp-admin-api
   },
   "devDependencies": {
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
+<<<<<<< HEAD
+=======
+    "netlify-cli": "^26.2.0",
+>>>>>>> fix/password-reset-otp-admin-api
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.4",

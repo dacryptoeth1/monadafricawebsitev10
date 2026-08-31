@@ -2,9 +2,17 @@ import { type FormEvent, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Reveal from '../components/Reveal'
+<<<<<<< HEAD
 import type { UserRole } from '../types'
 
 const ROLES: UserRole[] = ['Developer', 'Designer', 'Content Creator', 'Community Member', 'Founder', 'Student']
+=======
+import PasswordField from '../components/PasswordField'
+import CountrySelect from '../components/CountrySelect'
+import MonadMark from '../components/MonadMark'
+import { USER_ROLES, normalizeUserRole } from '../lib/userRole'
+import { getErrorMessage, logError } from '../lib/errors'
+>>>>>>> fix/password-reset-otp-admin-api
 
 export default function Signup() {
   const { signUp } = useAuth()
@@ -12,6 +20,11 @@ export default function Signup() {
   const [params] = useSearchParams()
   const refCode = params.get('ref') || ''
 
+<<<<<<< HEAD
+=======
+  const [countryIso, setCountryIso] = useState('')
+  const [countryName, setCountryName] = useState('')
+>>>>>>> fix/password-reset-otp-admin-api
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -27,12 +40,32 @@ export default function Signup() {
       setError('Password must be at least 6 characters.')
       return
     }
+<<<<<<< HEAD
+=======
+    if (!countryName) {
+      setError('Please select your country.')
+      return
+    }
+
+    // profiles.role has a CHECK constraint (profiles_role_check) that
+    // only accepts the exact USER_ROLES strings, or NULL — never an
+    // empty/unrecognized value. The <select> below is built from
+    // USER_ROLES so this should always normalize cleanly; if it
+    // somehow doesn't, block submission here rather than let the
+    // signup trigger insert an invalid role and fail server-side.
+    const normalizedRole = normalizeUserRole(String(data.get('role') || ''))
+    if (!normalizedRole) {
+      setError('Please select a valid role.')
+      return
+    }
+>>>>>>> fix/password-reset-otp-admin-api
 
     setLoading(true)
     try {
       await signUp(email, password, {
         full_name: String(data.get('full_name') || ''),
         username: String(data.get('username') || ''),
+<<<<<<< HEAD
         country: String(data.get('country') || ''),
         role: String(data.get('role') || ''),
         referredByCode: refCode,
@@ -40,6 +73,16 @@ export default function Signup() {
       setDone(true)
     } catch (err: any) {
       setError(err?.message || 'Something went wrong creating your account.')
+=======
+        country: countryName,
+        role: normalizedRole,
+        referredByCode: refCode,
+      })
+      setDone(true)
+    } catch (err) {
+      logError('[Signup] signUp failed:', err)
+      setError(getErrorMessage(err, 'Something went wrong creating your account. Please try again in a moment.'))
+>>>>>>> fix/password-reset-otp-admin-api
     } finally {
       setLoading(false)
     }
@@ -69,6 +112,10 @@ export default function Signup() {
     <section className="pt-36 pb-28 min-h-screen">
       <div className="max-w-md mx-auto px-6">
         <Reveal>
+<<<<<<< HEAD
+=======
+          <div className="flex justify-center mb-5"><MonadMark size={40} /></div>
+>>>>>>> fix/password-reset-otp-admin-api
           <h1 className="font-display font-semibold text-3xl mb-2 text-center">Join Monad Africa</h1>
           <p className="text-white/50 text-sm text-center mb-10">Create your builder account</p>
 
@@ -76,13 +123,33 @@ export default function Signup() {
             <Field label="Full Name" name="full_name" required />
             <Field label="Username" name="username" required />
             <Field label="Email" name="email" type="email" required />
+<<<<<<< HEAD
             <Field label="Password" name="password" type="password" required />
             <Field label="Country" name="country" required />
+=======
+            <PasswordField label="Password" name="password" required autoComplete="new-password" />
+
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Country</label>
+              <CountrySelect
+                value={countryIso}
+                required
+                onChange={(iso, name) => {
+                  setCountryIso(iso)
+                  setCountryName(name)
+                }}
+              />
+            </div>
+>>>>>>> fix/password-reset-otp-admin-api
 
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Role</label>
               <select name="role" required className="input" defaultValue="Developer">
+<<<<<<< HEAD
                 {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+=======
+                {USER_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+>>>>>>> fix/password-reset-otp-admin-api
               </select>
             </div>
 

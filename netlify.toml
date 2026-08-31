@@ -1,6 +1,10 @@
 [build]
   command = "npm run build"
   publish = "dist"
+<<<<<<< HEAD
+=======
+  functions = "netlify/functions"
+>>>>>>> fix/password-reset-otp-admin-api
 
 [[redirects]]
   from = "/*"

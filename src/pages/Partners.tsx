@@ -39,7 +39,11 @@ export default function Partners() {
             {partners.map((p, i) => (
               <Reveal key={p.id} delay={i * 50}>
                 <a href={p.website || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-6 py-4 rounded-full border border-white/15 hover:border-gold/40 hover:-translate-y-0.5 transition-all font-display font-semibold">
+<<<<<<< HEAD
                   {p.logo_url ? <img src={p.logo_url} alt={p.name} className="w-6 h-6 rounded object-cover" /> : <span className="w-5 h-5 rounded bg-gradient-to-br from-purple-glow to-purple" />}
+=======
+                  {p.logo_url ? <img src={p.logo_url} alt={p.name} loading="lazy" className="w-6 h-6 rounded object-cover" /> : <span className="w-5 h-5 rounded bg-gradient-to-br from-purple-glow to-purple" />}
+>>>>>>> fix/password-reset-otp-admin-api
                   {p.name}
                 </a>
               </Reveal>

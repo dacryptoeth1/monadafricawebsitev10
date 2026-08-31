@@ -1,4 +1,8 @@
 import { type FormEvent, useState } from 'react'
+<<<<<<< HEAD
+=======
+import { Link } from 'react-router-dom'
+>>>>>>> fix/password-reset-otp-admin-api
 import { useAuth } from '../../context/AuthContext'
 
 export default function AdminLogin() {
@@ -32,7 +36,14 @@ export default function AdminLogin() {
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="input" />
           </div>
           <div className="flex flex-col gap-1.5">
+<<<<<<< HEAD
             <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Password</label>
+=======
+            <div className="flex items-center justify-between">
+              <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Password</label>
+              <Link to="/forgot-password" className="text-xs text-purple-light hover:text-white transition-colors">Forgot?</Link>
+            </div>
+>>>>>>> fix/password-reset-otp-admin-api
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="input" />
           </div>
           {error && <div className="text-sm text-rose-300">{error}</div>}

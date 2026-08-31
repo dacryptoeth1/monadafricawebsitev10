@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -liE \"walletconnect|reown|wagmi|appkit\")",
+      "Bash(npx tsc *)"
+    ]
+  }
+}

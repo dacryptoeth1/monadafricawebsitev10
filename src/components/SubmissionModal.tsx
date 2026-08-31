@@ -4,6 +4,10 @@ import { UploadCloud, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import type { Application, Bounty } from '../types'
+<<<<<<< HEAD
+=======
+import { getErrorMessage, logError } from '../lib/errors'
+>>>>>>> fix/password-reset-otp-admin-api
 
 interface AppRow extends Application {
   bounties: Pick<Bounty, 'title' | 'reward'> | null
@@ -52,8 +56,14 @@ export default function SubmissionModal({
       })
       if (insertErr) throw insertErr
       onSubmitted()
+<<<<<<< HEAD
     } catch {
       setError('Something went wrong submitting your work — please try again.')
+=======
+    } catch (err) {
+      logError('[SubmissionModal] submission failed:', err)
+      setError(getErrorMessage(err, 'Something went wrong submitting your work — please try again.'))
+>>>>>>> fix/password-reset-otp-admin-api
     } finally {
       setSubmitting(false)
     }
