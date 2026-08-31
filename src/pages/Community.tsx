@@ -1,26 +1,11 @@
 import { useEffect, useState } from 'react'
 import { CalendarDays, MessageCircle, Send, Star } from 'lucide-react'
-<<<<<<< HEAD
-import { supabase } from '../lib/supabase'
-import type { SiteSettings } from '../types'
-import { defaultSiteSettings } from '../types'
-=======
 import { fetchDiscordWidget } from '../lib/discordWidget'
 import { useSiteSettings } from '../hooks/useSiteSettings'
->>>>>>> fix/password-reset-otp-admin-api
 import Reveal from '../components/Reveal'
 import Counter from '../components/Counter'
 
 export default function Community() {
-<<<<<<< HEAD
-  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings)
-
-  useEffect(() => {
-    supabase.from('site_settings').select('*').eq('id', 1).maybeSingle().then(({ data }) => {
-      if (data) setSettings(data as SiteSettings)
-    })
-  }, [])
-=======
   const settings = useSiteSettings()
   const [liveDiscord, setLiveDiscord] = useState<{ members: number; online: number } | null>(null)
 
@@ -38,7 +23,6 @@ export default function Community() {
   const discordOnline = liveDiscord?.online ?? settings.discord_online_manual
   const discordIsLive = liveDiscord !== null
   const totalCommunity = settings.x_followers + settings.telegram_members + discordMembers
->>>>>>> fix/password-reset-otp-admin-api
 
   const channels = [
     { icon: MessageCircle, title: 'Discord', desc: 'Where the community lives day to day.', href: settings.discord_url },
@@ -74,15 +58,6 @@ export default function Community() {
           ))}
         </div>
 
-<<<<<<< HEAD
-        <Reveal className="grid grid-cols-2 md:grid-cols-5 gap-5 mb-20">
-          {[
-            ['X Followers', settings.x_followers],
-            ['Discord Members', settings.discord_members],
-            ['Countries Reached', settings.countries_reached],
-            ['Builders Onboarded', settings.builders_onboarded],
-            ['Partners', settings.community_partners],
-=======
         <Reveal className="mb-4">
           <h2 className="font-display font-semibold text-2xl">Community Dashboard</h2>
         </Reveal>
@@ -134,7 +109,6 @@ export default function Community() {
             ['Countries Reached', settings.countries_reached],
             ['Builders Onboarded', settings.builders_onboarded],
             ['Community Partners', settings.community_partners],
->>>>>>> fix/password-reset-otp-admin-api
           ].map(([label, value]) => (
             <div key={label as string} className="rounded-squircle border border-white/10 bg-gradient-to-b from-purple/10 to-transparent p-6 text-center">
               <div className="font-display font-semibold text-2xl"><Counter value={value as number} suffix="+" /></div>
@@ -163,8 +137,6 @@ export default function Community() {
     </section>
   )
 }
-<<<<<<< HEAD
-=======
 
 function StatCard({
   emoji,
@@ -197,4 +169,3 @@ function StatCard({
     </div>
   )
 }
->>>>>>> fix/password-reset-otp-admin-api

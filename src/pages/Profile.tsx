@@ -1,13 +1,3 @@
-<<<<<<< HEAD
-import { type FormEvent, useState } from 'react'
-import { UploadCloud } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../context/AuthContext'
-import type { UserRole } from '../types'
-import Reveal from '../components/Reveal'
-
-const ROLES: UserRole[] = ['Developer', 'Designer', 'Content Creator', 'Community Member', 'Founder', 'Student']
-=======
 import { type FormEvent, useEffect, useState } from 'react'
 import { UploadCloud } from 'lucide-react'
 import { Country } from 'country-state-city'
@@ -28,17 +18,11 @@ function findIsoByName(name: string | null): string {
   const match = Country.getAllCountries().find((c) => c.name === name)
   return match?.isoCode ?? ''
 }
->>>>>>> fix/password-reset-otp-admin-api
 
 export default function Profile() {
   const { profile, refreshProfile } = useAuth()
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile?.avatar_url ?? null)
-<<<<<<< HEAD
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-=======
   const [countryIso, setCountryIso] = useState(() => findIsoByName(profile?.country ?? null))
   const [countryName, setCountryName] = useState(profile?.country ?? '')
   const [region, setRegion] = useState(profile?.region ?? '')
@@ -59,7 +43,6 @@ export default function Profile() {
         setBadges(rows)
       })
   }, [profile?.id])
->>>>>>> fix/password-reset-otp-admin-api
 
   if (!profile) return null
 
@@ -74,8 +57,6 @@ export default function Profile() {
     setError(null)
     setSaved(false)
     const data = new FormData(e.currentTarget)
-<<<<<<< HEAD
-=======
 
     const wallet = walletAddress.trim()
     if (wallet && !wallet.startsWith('0x')) {
@@ -104,7 +85,6 @@ export default function Profile() {
     // constraint violation or overwriting it with something invalid.
     const normalizedRole = normalizeUserRole(String(data.get('role') || ''))
 
->>>>>>> fix/password-reset-otp-admin-api
     setSaving(true)
     try {
       let avatarUrl = profile!.avatar_url
@@ -116,20 +96,6 @@ export default function Profile() {
         avatarUrl = pub.publicUrl
       }
 
-<<<<<<< HEAD
-      const { error: updateErr } = await supabase
-        .from('profiles')
-        .update({
-          full_name: String(data.get('full_name') || ''),
-          username: String(data.get('username') || ''),
-          country: String(data.get('country') || ''),
-          role: String(data.get('role') || ''),
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profile!.id)
-      if (updateErr) throw updateErr
-=======
       const roleUpdate = normalizedRole ? { role: normalizedRole } : {}
 
       const profileUpdatePayload = {
@@ -194,19 +160,13 @@ export default function Profile() {
       } catch {
         // non-fatal
       }
->>>>>>> fix/password-reset-otp-admin-api
 
       await refreshProfile()
       setSaved(true)
       setTimeout(() => setSaved(false), 2200)
-<<<<<<< HEAD
-    } catch {
-      setError('Something went wrong saving your profile.')
-=======
     } catch (err) {
       logError('[Profile] save failed:', err)
       setError(getErrorMessage(err, 'Something went wrong saving your profile.'))
->>>>>>> fix/password-reset-otp-admin-api
     } finally {
       setSaving(false)
     }
@@ -214,13 +174,6 @@ export default function Profile() {
 
   return (
     <section className="pt-36 pb-28 min-h-screen">
-<<<<<<< HEAD
-      <div className="max-w-lg mx-auto px-6">
-        <Reveal>
-          <h1 className="font-display font-semibold text-3xl mb-8 text-center">Edit Profile</h1>
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-=======
       <div className="max-w-2xl mx-auto px-6">
         <Reveal className="mb-10">
           <ProfileStatsHeader profile={profile} badges={badges} />
@@ -230,7 +183,6 @@ export default function Profile() {
           <h1 className="font-display font-semibold text-2xl mb-6 text-center">Edit Profile</h1>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-w-lg mx-auto">
->>>>>>> fix/password-reset-otp-admin-api
             <div className="flex flex-col items-center gap-3 mb-2">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden text-2xl font-display font-bold">
                 {avatarPreview ? <img src={avatarPreview} alt="" className="w-full h-full object-cover" /> : (profile.username || '?').slice(0, 2).toUpperCase()}
@@ -243,9 +195,6 @@ export default function Profile() {
 
             <Field label="Full Name" name="full_name" defaultValue={profile.full_name ?? ''} />
             <Field label="Username" name="username" defaultValue={profile.username ?? ''} />
-<<<<<<< HEAD
-            <Field label="Country" name="country" defaultValue={profile.country ?? ''} />
-=======
 
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Country</label>
@@ -263,17 +212,10 @@ export default function Profile() {
               <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Region / State</label>
               <RegionSelect countryIsoCode={countryIso} value={region} onChange={setRegion} />
             </div>
->>>>>>> fix/password-reset-otp-admin-api
 
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Role</label>
               <select name="role" defaultValue={profile.role ?? 'Developer'} className="input">
-<<<<<<< HEAD
-                {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-
-=======
                 {USER_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
@@ -305,7 +247,6 @@ export default function Profile() {
               Paste your EVM wallet address manually (must start with 0x) — used for reward distribution.
             </p>
 
->>>>>>> fix/password-reset-otp-admin-api
             {error && <div className="text-sm text-rose-300">{error}</div>}
             {saved && <div className="text-sm text-emerald-300">Profile saved.</div>}
 
@@ -319,19 +260,11 @@ export default function Profile() {
   )
 }
 
-<<<<<<< HEAD
-function Field({ label, name, defaultValue }: { label: string; name: string; defaultValue: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">{label}</label>
-      <input name={name} defaultValue={defaultValue} className="input" />
-=======
 function Field({ label, name, defaultValue, placeholder }: { label: string; name: string; defaultValue: string; placeholder?: string }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">{label}</label>
       <input name={name} defaultValue={defaultValue} placeholder={placeholder} className="input" />
->>>>>>> fix/password-reset-otp-admin-api
     </div>
   )
 }

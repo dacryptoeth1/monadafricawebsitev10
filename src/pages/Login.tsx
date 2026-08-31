@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-import { type FormEvent, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import Reveal from '../components/Reveal'
-
-export default function Login() {
-  const { signIn } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation() as { state?: { from?: string } }
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-=======
 import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -70,21 +55,10 @@ export default function Login() {
       navigate('/dashboard', { state: { message: 'Email verified! Welcome to Monad Africa.' } })
     }
   }, [confirming, session, navigate])
->>>>>>> fix/password-reset-otp-admin-api
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-<<<<<<< HEAD
-    setLoading(true)
-    try {
-      await signIn(email, password)
-      navigate(location.state?.from || '/dashboard')
-    } catch {
-      setError('Invalid email or password.')
-    } finally {
-      setLoading(false)
-=======
     setUnverified(false)
     setResent(false)
     setLoading(true)
@@ -138,7 +112,6 @@ export default function Login() {
       setResent(true)
     } catch {
       setError('Could not resend the verification email — try again shortly.')
->>>>>>> fix/password-reset-otp-admin-api
     }
   }
 
@@ -146,10 +119,6 @@ export default function Login() {
     <section className="pt-36 pb-28 min-h-screen flex items-center">
       <div className="max-w-sm mx-auto px-6 w-full">
         <Reveal>
-<<<<<<< HEAD
-          <h1 className="font-display font-semibold text-3xl mb-2 text-center">Welcome back</h1>
-          <p className="text-white/50 text-sm text-center mb-10">Log in to your Monad Africa account</p>
-=======
           <div className="flex justify-center mb-5"><MonadMark size={40} /></div>
           <h1 className="font-display font-semibold text-3xl mb-2 text-center">Welcome back</h1>
           <p className="text-white/50 text-sm text-center mb-6">Log in to your Monad Africa account</p>
@@ -171,7 +140,6 @@ export default function Login() {
               </div>
             )
           )}
->>>>>>> fix/password-reset-otp-admin-api
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -183,11 +151,6 @@ export default function Login() {
                 <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Password</label>
                 <Link to="/forgot-password" className="text-xs text-purple-light hover:text-white transition-colors">Forgot?</Link>
               </div>
-<<<<<<< HEAD
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="input" />
-            </div>
-            {error && <div className="text-sm text-rose-300">{error}</div>}
-=======
               <PasswordField name="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
 
@@ -206,7 +169,6 @@ export default function Login() {
               </div>
             )}
 
->>>>>>> fix/password-reset-otp-admin-api
             <button type="submit" disabled={loading} className="mt-2 px-5 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple disabled:opacity-50 hover:-translate-y-0.5 transition-transform">
               {loading ? 'Signing in…' : 'Log In'}
             </button>

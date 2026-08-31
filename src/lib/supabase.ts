@@ -3,9 +3,6 @@ import { createClient } from '@supabase/supabase-js'
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-<<<<<<< HEAD
-export const supabase = createClient(url, anonKey)
-=======
 // createClient() throws synchronously with an opaque library error
 // ("supabaseUrl is required.") if either value is missing — and since
 // this module is imported transitively by App.tsx on every route, that
@@ -61,4 +58,3 @@ export const supabase = createClient(url, anonKey, {
     detectSessionInUrl: true, // required for email confirmation/password-reset links to complete
   },
 })
->>>>>>> fix/password-reset-otp-admin-api

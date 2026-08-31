@@ -2,27 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell, Copy, Trophy, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-<<<<<<< HEAD
-import { useAuth } from '../context/AuthContext'
-import type { AppNotification, Application, Bounty, Submission } from '../types'
-=======
 import { getRank } from '../lib/rank'
 import MonadMark from '../components/MonadMark'
 import { useAuth } from '../context/AuthContext'
 import type { AppNotification, Application, Bounty, CreditTransaction, Submission } from '../types'
->>>>>>> fix/password-reset-otp-admin-api
 import Reveal from '../components/Reveal'
 import SubmissionModal from '../components/SubmissionModal'
 
 interface AppRow extends Application {
-<<<<<<< HEAD
-  bounties: Pick<Bounty, 'title' | 'reward'> | null
-}
-interface SubRow extends Submission {
-  bounties: Pick<Bounty, 'title'> | null
-}
-
-=======
   bounties: Pick<Bounty, 'title' | 'reward' | 'logo_url' | 'project_name' | 'is_closed' | 'is_deleted'> | null
 }
 interface SubRow extends Submission {
@@ -31,29 +18,19 @@ interface SubRow extends Submission {
 
 const PROFILE_FIELDS = ['full_name', 'username', 'avatar_url', 'bio', 'country', 'region', 'role', 'twitter', 'telegram', 'discord', 'website'] as const
 
->>>>>>> fix/password-reset-otp-admin-api
 export default function Dashboard() {
   const { profile, refreshProfile } = useAuth()
   const [applications, setApplications] = useState<AppRow[]>([])
   const [submissions, setSubmissions] = useState<SubRow[]>([])
   const [notifications, setNotifications] = useState<AppNotification[]>([])
-<<<<<<< HEAD
-=======
   const [rank, setRank] = useState<number | null>(null)
   const [creditHistory, setCreditHistory] = useState<CreditTransaction[]>([])
->>>>>>> fix/password-reset-otp-admin-api
   const [loading, setLoading] = useState(true)
   const [submitFor, setSubmitFor] = useState<AppRow | null>(null)
   const [copied, setCopied] = useState(false)
 
   async function loadAll() {
     if (!profile) return
-<<<<<<< HEAD
-    const [{ data: apps }, { data: subs }, { data: notifs }] = await Promise.all([
-      supabase.from('applications').select('*, bounties(title, reward)').eq('user_id', profile.id).order('created_at', { ascending: false }),
-      supabase.from('submissions').select('*, bounties(title)').eq('user_id', profile.id).order('created_at', { ascending: false }),
-      supabase.from('notifications').select('*').or(`user_id.eq.${profile.id},user_id.is.null`).order('created_at', { ascending: false }).limit(20),
-=======
     const [{ data: apps }, { data: subs }, { data: notifs }, { count: betterCount }, { data: credits }] = await Promise.all([
       supabase.from('applications').select('*, bounties(title, reward, logo_url, project_name, is_closed, is_deleted)').eq('user_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('submissions').select('*, bounties(title, logo_url, project_name)').eq('user_id', profile.id).order('created_at', { ascending: false }),
@@ -64,16 +41,12 @@ export default function Dashboard() {
       // public view existed. See migration 0032.
       supabase.from('leaderboard_public').select('id', { count: 'exact', head: true }).gt('xp', profile.xp),
       supabase.from('credit_transactions').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(15),
->>>>>>> fix/password-reset-otp-admin-api
     ])
     setApplications((apps as AppRow[]) ?? [])
     setSubmissions((subs as SubRow[]) ?? [])
     setNotifications((notifs as AppNotification[]) ?? [])
-<<<<<<< HEAD
-=======
     setRank((betterCount ?? 0) + 1)
     setCreditHistory((credits as CreditTransaction[]) ?? [])
->>>>>>> fix/password-reset-otp-admin-api
     setLoading(false)
   }
 
@@ -98,10 +71,6 @@ export default function Dashboard() {
   }
 
   const wonCount = submissions.filter((s) => s.status === 'approved').length
-<<<<<<< HEAD
-  const unreadCount = notifications.filter((n) => !n.read).length
-
-=======
   const pendingSubs = submissions.filter((s) => s.status === 'pending').length
   const rejectedSubs = submissions.filter((s) => s.status === 'rejected').length
   const unreadCount = notifications.filter((n) => !n.read).length
@@ -110,7 +79,6 @@ export default function Dashboard() {
     ? Math.round((PROFILE_FIELDS.filter((f) => !!(profile as any)[f]).length / PROFILE_FIELDS.length) * 100)
     : 0
 
->>>>>>> fix/password-reset-otp-admin-api
   if (!profile || loading) {
     return <div className="min-h-screen flex items-center justify-center text-white/40 text-sm pt-20">Loading your dashboard…</div>
   }
@@ -118,30 +86,6 @@ export default function Dashboard() {
   return (
     <section className="pt-36 pb-28 min-h-screen">
       <div className="max-w-6xl mx-auto px-6">
-<<<<<<< HEAD
-        <Reveal className="flex flex-wrap items-center justify-between gap-6 mb-12">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden text-xl font-display font-bold">
-              {profile.avatar_url ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" /> : (profile.username || profile.full_name || '?').slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <h1 className="font-display font-semibold text-2xl">{profile.full_name || profile.username}</h1>
-              <p className="text-white/40 text-sm">@{profile.username} · {profile.country} · {profile.role}</p>
-            </div>
-          </div>
-          <Link to="/profile" className="px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">
-            Edit Profile
-          </Link>
-        </Reveal>
-
-        <Reveal className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          <StatCard label="Credits" value={profile.credits} />
-          <StatCard label="Referrals" value={profile.total_referrals} icon={Users} />
-          <StatCard label="Applications" value={applications.length} />
-          <StatCard label="Wins" value={wonCount} icon={Trophy} />
-        </Reveal>
-
-=======
         <Reveal className="flex flex-wrap items-center justify-between gap-6 mb-8">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden text-xl font-display font-bold">
@@ -192,7 +136,6 @@ export default function Dashboard() {
           <StatCard label="Rejected" value={rejectedSubs} small />
         </Reveal>
 
->>>>>>> fix/password-reset-otp-admin-api
         <Reveal className="rounded-squircle border border-white/10 bg-panel/40 p-6 mb-12 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="font-display font-semibold mb-1">Your referral code</h3>
@@ -207,8 +150,6 @@ export default function Dashboard() {
           </div>
         </Reveal>
 
-<<<<<<< HEAD
-=======
         {(profile.telegram || profile.discord || profile.twitter || profile.website) && (
           <Reveal className="flex flex-wrap gap-3 mb-12">
             {profile.twitter && <InfoChip label="X" value={profile.twitter} />}
@@ -218,7 +159,6 @@ export default function Dashboard() {
           </Reveal>
         )}
 
->>>>>>> fix/password-reset-otp-admin-api
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           <Reveal>
             <h3 className="font-display font-semibold text-lg mb-4">Applied Bounties</h3>
@@ -228,15 +168,6 @@ export default function Dashboard() {
               <div className="flex flex-col gap-2.5">
                 {applications.map((a) => (
                   <div key={a.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between gap-3">
-<<<<<<< HEAD
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{a.bounties?.title ?? 'Bounty'}</div>
-                      <div className="text-white/40 text-xs mt-0.5">{a.bounties?.reward}</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <StatusPill status={a.status} />
-                      {a.status === 'approved' && !submissions.some((s) => s.application_id === a.id) && (
-=======
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 text-[10px] font-bold">
                         {a.bounties?.logo_url ? <img src={a.bounties.logo_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : (a.bounties?.project_name || '?').slice(0, 2).toUpperCase()}
@@ -260,7 +191,6 @@ export default function Dashboard() {
                         </span>
                       )}
                       {a.status === 'approved' && a.bounties && !a.bounties.is_closed && !submissions.some((s) => s.application_id === a.id) && (
->>>>>>> fix/password-reset-otp-admin-api
                         <button onClick={() => setSubmitFor(a)} className="text-xs font-semibold text-purple-light hover:text-white">Submit →</button>
                       )}
                     </div>
@@ -278,16 +208,12 @@ export default function Dashboard() {
               <div className="flex flex-col gap-2.5">
                 {submissions.map((s) => (
                   <div key={s.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between gap-3">
-<<<<<<< HEAD
-                    <div className="text-sm font-medium truncate">{s.bounties?.title ?? 'Bounty'}</div>
-=======
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 text-[10px] font-bold">
                         {s.bounties?.logo_url ? <img src={s.bounties.logo_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : (s.bounties?.project_name || '?').slice(0, 2).toUpperCase()}
                       </div>
                       <div className="text-sm font-medium truncate">{s.bounties?.title ?? 'Bounty'}</div>
                     </div>
->>>>>>> fix/password-reset-otp-admin-api
                     <StatusPill status={s.status} />
                   </div>
                 ))}
@@ -296,8 +222,6 @@ export default function Dashboard() {
           </Reveal>
         </div>
 
-<<<<<<< HEAD
-=======
         <Reveal className="mb-12">
           <h3 className="font-display font-semibold text-lg mb-4">Credit History</h3>
           {creditHistory.length === 0 ? (
@@ -316,7 +240,6 @@ export default function Dashboard() {
           )}
         </Reveal>
 
->>>>>>> fix/password-reset-otp-admin-api
         <Reveal>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-semibold text-lg flex items-center gap-2">
@@ -354,26 +277,16 @@ export default function Dashboard() {
   )
 }
 
-<<<<<<< HEAD
-function StatCard({ label, value, icon: Icon }: { label: string; value: number; icon?: any }) {
-  return (
-    <div className="rounded-squircle border border-white/10 bg-gradient-to-b from-purple/10 to-transparent p-5 text-center">
-      {Icon && <Icon size={16} className="mx-auto mb-2 text-purple-light" />}
-      <div className="font-display font-semibold text-2xl">{value}</div>
-=======
 function StatCard({ label, value, icon: Icon, prefix, small }: { label: string; value: number | string; icon?: any; prefix?: string; small?: boolean }) {
   return (
     <div className={`rounded-squircle border border-white/10 bg-gradient-to-b from-purple/10 to-transparent text-center ${small ? 'p-4' : 'p-5'}`}>
       {Icon && <Icon size={16} className="mx-auto mb-2 text-purple-light" />}
       <div className={`font-display font-semibold ${small ? 'text-xl' : 'text-2xl'}`}>{prefix}{value}</div>
->>>>>>> fix/password-reset-otp-admin-api
       <div className="text-white/50 text-xs mt-1">{label}</div>
     </div>
   )
 }
 
-<<<<<<< HEAD
-=======
 function InfoChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-4 py-2 rounded-full border border-white/10 bg-white/[0.02] text-xs">
@@ -383,7 +296,6 @@ function InfoChip({ label, value }: { label: string; value: string }) {
   )
 }
 
->>>>>>> fix/password-reset-otp-admin-api
 function StatusPill({ status }: { status: string }) {
   const styles: Record<string, string> = {
     pending: 'text-amber-300 border-amber-300/30 bg-amber-300/10',
@@ -393,8 +305,6 @@ function StatusPill({ status }: { status: string }) {
   return <span className={`text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border ${styles[status] || styles.pending}`}>{status}</span>
 }
 
-<<<<<<< HEAD
-=======
 function formatReason(reason: string): string {
   if (reason.startsWith('bounty_application:')) return 'Applied to a bounty'
   if (reason === 'signup_bonus') return 'Welcome bonus'
@@ -403,7 +313,6 @@ function formatReason(reason: string): string {
   return reason.replace(/_/g, ' ')
 }
 
->>>>>>> fix/password-reset-otp-admin-api
 function EmptyRow({ text }: { text: string }) {
   return <div className="text-white/40 text-sm border border-dashed border-white/15 rounded-xl p-5">{text}</div>
 }

@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 import { useEffect, useRef, useState } from 'react'
 
->>>>>>> fix/password-reset-otp-admin-api
 const NODES = [
   { name: 'Cairo', x: 345, y: 105 },
   { name: 'Accra', x: 148, y: 318 },
@@ -18,11 +15,6 @@ const LINKS: [number, number][] = [
   [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [3, 7], [1, 4],
 ]
 
-<<<<<<< HEAD
-export default function AfricaNetworkMap({ className = '' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 600 620" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-=======
 // The pulsing node rings used to be plain SVG SMIL <animate> elements with
 // repeatCount="indefinite" — that runs forever on the compositor even when
 // this section is scrolled out of view or the tab is backgrounded, and
@@ -47,7 +39,6 @@ export default function AfricaNetworkMap({ className = '' }: { className?: strin
 
   return (
     <svg ref={ref} className={className} viewBox="0 0 600 620" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
->>>>>>> fix/password-reset-otp-admin-api
       <defs>
         <linearGradient id="continentStroke" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#FFB347" />
@@ -74,13 +65,8 @@ export default function AfricaNetworkMap({ className = '' }: { className?: strin
       {NODES.map((n, i) => (
         <g key={n.name} transform={`translate(${n.x},${n.y})`}>
           <circle r="10" fill="none" stroke="#A99AFF" strokeWidth="1" opacity="0.5">
-<<<<<<< HEAD
-            <animate attributeName="r" values="6;20" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.6;0" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />
-=======
             {animate && <animate attributeName="r" values="6;20" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />}
             {animate && <animate attributeName="opacity" values="0.6;0" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />}
->>>>>>> fix/password-reset-otp-admin-api
           </circle>
           <circle r="4.5" fill={i % 2 === 0 ? '#E8B75D' : '#A99AFF'} />
         </g>

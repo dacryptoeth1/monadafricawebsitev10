@@ -5,8 +5,6 @@ export default defineConfig({
   plugins: [react()],
   build: {
     chunkSizeWarningLimit: 900,
-<<<<<<< HEAD
-=======
     rollupOptions: {
       output: {
         // Split large, infrequently-changing vendor libraries out of the
@@ -38,6 +36,5 @@ export default defineConfig({
         },
       },
     },
->>>>>>> fix/password-reset-otp-admin-api
   },
 })

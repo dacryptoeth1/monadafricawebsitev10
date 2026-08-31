@@ -18,8 +18,6 @@ export interface Bounty {
   reward: string
   deadline: string
   status: BountyStatus
-<<<<<<< HEAD
-=======
   is_closed: boolean
   is_featured: boolean
   is_deleted: boolean
@@ -27,14 +25,11 @@ export interface Bounty {
   deleted_by: string | null
   closed_at: string | null
   closed_by: string | null
->>>>>>> fix/password-reset-otp-admin-api
   created_at: string
 }
 
 export type NewBounty = Omit<Bounty, 'id' | 'status' | 'created_at'>
 
-<<<<<<< HEAD
-=======
 // The four lifecycle states the Admin "Manage Bounties" panel and the
 // public bounty pages actually reason about — derived from the
 // existing status/is_closed/is_deleted columns rather than a fifth
@@ -50,7 +45,6 @@ export function bountyLifecycleStatus(b: Pick<Bounty, 'status' | 'is_closed' | '
   return b.is_closed ? 'closed' : 'active'
 }
 
->>>>>>> fix/password-reset-otp-admin-api
 export interface Application {
   id: string
   bounty_id: string
@@ -64,10 +58,6 @@ export interface Application {
   created_at: string
 }
 
-<<<<<<< HEAD
-export type UserRole = 'Developer' | 'Designer' | 'Content Creator' | 'Community Member' | 'Founder' | 'Student'
-
-=======
 // `public.leaderboard_public` (migration 0032) — the only source of
 // other users' data that's actually readable by a logged-out visitor
 // or an ordinary (non-admin) logged-in user. `profiles` itself only
@@ -91,21 +81,12 @@ export type UserRole = 'Developer' | 'Designer' | 'Content Creator' | 'Community
 
 export type AdminRole = 'super_admin' | 'admin' | 'moderator'
 
->>>>>>> fix/password-reset-otp-admin-api
 export interface Profile {
   id: string
   full_name: string | null
   username: string | null
   email: string | null
   country: string | null
-<<<<<<< HEAD
-  role: UserRole | null
-  avatar_url: string | null
-  credits: number
-  referral_code: string | null
-  referred_by: string | null
-  total_referrals: number
-=======
   region: string | null
   role: UserRole | null
   avatar_url: string | null
@@ -131,13 +112,10 @@ export interface Profile {
   is_banned: boolean
   hide_from_leaderboard: boolean
   last_seen: string | null
->>>>>>> fix/password-reset-otp-admin-api
   created_at: string
   updated_at: string
 }
 
-<<<<<<< HEAD
-=======
 export interface Badge {
   code: string
   label: string
@@ -217,7 +195,6 @@ export interface CreditTransaction {
   created_at: string
 }
 
->>>>>>> fix/password-reset-otp-admin-api
 export interface Submission {
   id: string
   application_id: string | null
@@ -230,10 +207,7 @@ export interface Submission {
   file_url: string | null
   additional_notes: string | null
   status: 'pending' | 'approved' | 'rejected'
-<<<<<<< HEAD
-=======
   is_winner: boolean
->>>>>>> fix/password-reset-otp-admin-api
   created_at: string
 }
 
@@ -247,12 +221,9 @@ export interface AppNotification {
   created_at: string
 }
 
-<<<<<<< HEAD
-=======
 // Narrow view of `public.events` for the simple homepage announcement
 // feed and the Admin → Events tab (title/type/date/link only — see
 // EventListing above for the same table's registration columns).
->>>>>>> fix/password-reset-otp-admin-api
 export interface EventItem {
   id: string
   title: string
@@ -279,10 +250,7 @@ export interface EcosystemProject {
   website: string | null
   description: string | null
   category: string | null
-<<<<<<< HEAD
-=======
   is_featured: boolean
->>>>>>> fix/password-reset-otp-admin-api
   created_at: string
 }
 
@@ -311,10 +279,6 @@ export interface Partner {
   created_at: string
 }
 
-<<<<<<< HEAD
-export interface SiteSettings {
-  x_followers: number
-=======
 export type EventListingStatus = 'draft' | 'published' | 'cancelled'
 
 // Registration-capable view of `public.events` — the SAME table the
@@ -403,7 +367,6 @@ export interface EventInviteCodeAdminRow {
 export interface SiteSettings {
   x_followers: number
   x_followers_change_week: number
->>>>>>> fix/password-reset-otp-admin-api
   discord_members: number
   countries_reached: number
   builders_onboarded: number
@@ -411,37 +374,25 @@ export interface SiteSettings {
   x_url: string
   discord_url: string
   telegram_url: string
-<<<<<<< HEAD
-=======
   telegram_members: number
   telegram_members_change_today: number
   discord_online_manual: number
   discord_joined_today: number
   discord_guild_id: string
   discord_widget_enabled: boolean
->>>>>>> fix/password-reset-otp-admin-api
   updated_at: string
 }
 
 export const defaultSiteSettings: SiteSettings = {
-<<<<<<< HEAD
-  x_followers: 130,
-  discord_members: 160,
-=======
   x_followers: 1103,
   x_followers_change_week: 21,
   discord_members: 1982,
->>>>>>> fix/password-reset-otp-admin-api
   countries_reached: 4,
   builders_onboarded: 30,
   community_partners: 2,
   x_url: 'https://x.com/monadonafrica',
   discord_url: 'https://discord.gg/tjY9t3PZF',
   telegram_url: 'https://t.me/monad_africa',
-<<<<<<< HEAD
-  updated_at: '',
-}
-=======
   telegram_members: 2587,
   telegram_members_change_today: 34,
   discord_online_manual: 132,
@@ -458,4 +409,3 @@ export interface DiscordWidgetData {
   presence_count: number
   members: { id: string }[]
 }
->>>>>>> fix/password-reset-otp-admin-api

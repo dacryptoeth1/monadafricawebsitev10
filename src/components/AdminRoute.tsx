@@ -1,35 +1,10 @@
-<<<<<<< HEAD
-=======
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
->>>>>>> fix/password-reset-otp-admin-api
 import { useAuth } from '../context/AuthContext'
 import AdminLogin from '../pages/admin/AdminLogin'
 import AdminDashboard from '../pages/admin/AdminDashboard'
 
 export default function AdminRoute() {
-<<<<<<< HEAD
-  const { session, loading, isAdmin } = useAuth()
-
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-white/40 text-sm bg-ink">Loading…</div>
-  }
-
-  if (!session) return <AdminLogin />
-
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-center px-6 bg-ink">
-        <div>
-          <h1 className="font-display font-semibold text-xl mb-2">Not authorized</h1>
-          <p className="text-white/50 text-sm max-w-sm">
-            This account is signed in but isn't on the admin allowlist. Add its user ID to the{' '}
-            <code className="text-purple-light">admins</code> table in Supabase to grant access.
-          </p>
-        </div>
-      </div>
-    )
-=======
   // Any staff tier (Moderator, Admin, Super Admin) reaches the
   // dashboard — AdminDashboard itself hides/disables tabs and actions
   // based on adminRole, and the database RPCs behind those actions
@@ -64,7 +39,6 @@ export default function AdminRoute() {
   // Redirected straight back to the homepage, no explanatory page.
   if (!isAdmin) {
     return <Navigate to="/" replace />
->>>>>>> fix/password-reset-otp-admin-api
   }
 
   return <AdminDashboard />

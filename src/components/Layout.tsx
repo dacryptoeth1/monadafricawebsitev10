@@ -1,29 +1,19 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-<<<<<<< HEAD
-import { Menu, X, MessageCircle, Send, Bell, LayoutDashboard, User, LogOut } from 'lucide-react'
-=======
 import { Menu, X, MessageCircle, Send, Bell, LayoutDashboard, User, LogOut, ShieldCheck, ChevronDown } from 'lucide-react'
->>>>>>> fix/password-reset-otp-admin-api
 import { AnimatePresence, motion } from 'framer-motion'
 import { defaultSiteSettings } from '../types'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-<<<<<<< HEAD
-=======
 import AnnouncementBanner from './AnnouncementBanner'
 import MonadMark from './MonadMark'
 import MonadOfficialBadge from './MonadOfficialBadge'
->>>>>>> fix/password-reset-otp-admin-api
 
 const NAV = [
   { to: '/about', label: 'About' },
   { to: '/bounties', label: 'Bounties' },
-<<<<<<< HEAD
-=======
   { to: '/events', label: 'Events' },
   { to: '/leaderboard', label: 'Leaderboard' },
->>>>>>> fix/password-reset-otp-admin-api
   { to: '/beginner-hub', label: 'Beginner Hub' },
   { to: '/ecosystem', label: 'Ecosystem' },
   { to: '/community', label: 'Community' },
@@ -44,15 +34,6 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? 'bg-ink/80 backdrop-blur-md border-b border-white/10 py-3' : 'py-5'}`}>
-<<<<<<< HEAD
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          <Link to="/" className="font-display font-semibold text-lg flex items-center gap-2" onClick={() => setMenuOpen(false)}>
-            <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center text-xs">M</span>
-            Monad Africa
-          </Link>
-
-          <div className="hidden lg:flex items-center gap-7 text-sm text-white/60 font-medium">
-=======
         <AnnouncementBanner />
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <Link to="/" className="font-display font-semibold text-lg flex items-center gap-2" onClick={() => setMenuOpen(false)}>
@@ -66,19 +47,12 @@ export default function Layout({ children }: { children: ReactNode }) {
               space with the account cluster / CTAs, which is what used
               to squeeze Sign Out off-screen on medium desktop widths. */}
           <div className="hidden xl:flex items-center gap-7 text-sm text-white/60 font-medium shrink-0">
->>>>>>> fix/password-reset-otp-admin-api
             {NAV.map((item) => (
               <NavLink key={item.to} to={item.to} className={({ isActive }) => `hover:text-white transition-colors ${isActive ? 'text-white' : ''}`}>
                 {item.label}
               </NavLink>
             ))}
           </div>
-<<<<<<< HEAD
-
-          <div className="hidden sm:flex items-center gap-3">
-            <AuthNavItems />
-            <Link to="/host-bounty" className="px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">
-=======
           <MoreNavMenu />
 
           {/* shrink-0 + always-rendered Sign Out inside AuthNavItems —
@@ -88,7 +62,6 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="hidden sm:flex items-center gap-3 shrink-0">
             <AuthNavItems />
             <Link to="/host-bounty" className="hidden xl:inline-flex px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">
->>>>>>> fix/password-reset-otp-admin-api
               Host a Bounty
             </Link>
             <Link to="/bounties" className="px-5 py-2.5 rounded-full text-sm font-semibold bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
@@ -96,11 +69,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             </Link>
           </div>
 
-<<<<<<< HEAD
-          <button className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl border border-white/15" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
-=======
           <button className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl border border-white/15 shrink-0" onClick={() => setMenuOpen((v) => !v)} aria-label="Menu">
->>>>>>> fix/password-reset-otp-admin-api
             {menuOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
@@ -145,22 +114,15 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex flex-wrap justify-between gap-10 mb-12">
           <div className="max-w-xs">
-<<<<<<< HEAD
-            <div className="font-display font-semibold text-lg mb-3">Monad Africa</div>
-=======
             <div className="font-display font-semibold text-lg mb-3 flex items-center gap-2"><MonadMark size={22} /> Monad Africa</div>
->>>>>>> fix/password-reset-otp-admin-api
             <p className="text-white/50 text-sm leading-relaxed">
               The gateway connecting the Monad ecosystem with Africa's next generation of
               builders, creators, and communities.
             </p>
-<<<<<<< HEAD
-=======
             <div className="flex items-center gap-2 mt-4 text-white/35 text-xs font-mono">
               <MonadOfficialBadge size={16} />
               Built for the Monad Ecosystem
             </div>
->>>>>>> fix/password-reset-otp-admin-api
             <div className="flex gap-3 mt-5">
               <a href={defaultSiteSettings.discord_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center hover:bg-white/10 transition-colors">
                 <MessageCircle size={15} />
@@ -200,11 +162,7 @@ function Footer() {
 }
 
 function AuthNavItems() {
-<<<<<<< HEAD
-  const { session, profile, isAdmin, signOut } = useAuth()
-=======
   const { session, signOut } = useAuth()
->>>>>>> fix/password-reset-otp-admin-api
   const navigate = useNavigate()
 
   if (!session) {
@@ -223,33 +181,17 @@ function AuthNavItems() {
   return (
     <>
       <NotificationBell />
-<<<<<<< HEAD
-      <Link to="/dashboard" className="px-4 py-2.5 text-sm font-semibold text-white/70 hover:text-white transition-colors flex items-center gap-1.5">
-        <LayoutDashboard size={14} /> Dashboard
-      </Link>
-      {!isAdmin && (
-        <Link to="/profile" className="px-4 py-2.5 text-sm font-semibold text-white/70 hover:text-white transition-colors flex items-center gap-1.5">
-          <User size={14} /> Profile
-        </Link>
-      )}
-=======
       <AccountMenu />
       {/* Always rendered, never collapsed into a menu — this is the
           element that used to get squeezed off-screen. */}
->>>>>>> fix/password-reset-otp-admin-api
       <button
         onClick={async () => {
           await signOut()
           navigate('/')
         }}
-<<<<<<< HEAD
-        className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center hover:bg-white/10 transition-colors"
-        title="Logout"
-=======
         className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center hover:bg-white/10 transition-colors shrink-0"
         title="Sign Out"
         aria-label="Sign Out"
->>>>>>> fix/password-reset-otp-admin-api
       >
         <LogOut size={14} />
       </button>
@@ -257,10 +199,6 @@ function AuthNavItems() {
   )
 }
 
-<<<<<<< HEAD
-function MobileAuthItems({ onNavigate }: { onNavigate: () => void }) {
-  const { session, signOut } = useAuth()
-=======
 function AccountMenu() {
   const { isAdmin } = useAuth()
   const [open, setOpen] = useState(false)
@@ -350,7 +288,6 @@ function MoreNavMenu() {
 
 function MobileAuthItems({ onNavigate }: { onNavigate: () => void }) {
   const { session, isAdmin, signOut } = useAuth()
->>>>>>> fix/password-reset-otp-admin-api
   const navigate = useNavigate()
 
   if (!session) {
@@ -364,16 +301,11 @@ function MobileAuthItems({ onNavigate }: { onNavigate: () => void }) {
 
   return (
     <>
-<<<<<<< HEAD
-      <Link to="/dashboard" onClick={onNavigate} className="text-white/70 text-base">Dashboard</Link>
-      <Link to="/profile" onClick={onNavigate} className="text-white/70 text-base">Profile</Link>
-=======
       {isAdmin && <Link to="/admin" onClick={onNavigate} className="text-purple-light text-base font-semibold">Admin Dashboard</Link>}
       <Link to="/dashboard" onClick={onNavigate} className="text-white/70 text-base">Dashboard</Link>
       <Link to="/profile" onClick={onNavigate} className="text-white/70 text-base">Profile</Link>
       <Link to="/activity" onClick={onNavigate} className="text-white/70 text-base">Activity</Link>
       <Link to="/settings" onClick={onNavigate} className="text-white/70 text-base">Settings</Link>
->>>>>>> fix/password-reset-otp-admin-api
       <button
         onClick={async () => {
           await signOut()

@@ -1,20 +1,12 @@
-<<<<<<< HEAD
-import { useState, type FormEvent } from 'react'
-=======
 import { memo, useState, type FormEvent } from 'react'
->>>>>>> fix/password-reset-otp-admin-api
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-<<<<<<< HEAD
-import type { Bounty } from '../types'
-=======
 import ReportButton from './ReportButton'
 import type { Bounty } from '../types'
 import { getErrorMessage, logError } from '../lib/errors'
->>>>>>> fix/password-reset-otp-admin-api
 
 const difficultyStyles: Record<Bounty['difficulty'], string> = {
   easy: 'text-emerald-300 border-emerald-300/30 bg-emerald-300/10',
@@ -22,9 +14,6 @@ const difficultyStyles: Record<Bounty['difficulty'], string> = {
   hard: 'text-rose-300 border-rose-300/30 bg-rose-300/10',
 }
 
-<<<<<<< HEAD
-export default function BountyCard({ bounty }: { bounty: Bounty }) {
-=======
 // Wrapped in memo: the Bounties page re-renders on every keystroke in
 // its search box (filtering a potentially multi-dozen-card grid), and
 // without this every BountyCard in the grid — including ones whose own
@@ -33,19 +22,14 @@ export default function BountyCard({ bounty }: { bounty: Bounty }) {
 // across re-renders (Array.filter() doesn't clone items), so memo's
 // default shallow-prop comparison correctly skips unaffected cards.
 export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
->>>>>>> fix/password-reset-otp-admin-api
   const [open, setOpen] = useState(false)
   const { session } = useAuth()
   const navigate = useNavigate()
 
-<<<<<<< HEAD
-  function handleApplyClick() {
-=======
   const unavailable = bounty.is_closed || bounty.is_deleted || bounty.status !== 'approved'
 
   function handleApplyClick() {
     if (unavailable) return // belt-and-suspenders — button is already disabled below
->>>>>>> fix/password-reset-otp-admin-api
     if (!session) {
       navigate('/login', { state: { from: '/bounties' } })
       return
@@ -57,9 +41,6 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
     <>
       <motion.div
         whileHover={{ y: -4 }}
-<<<<<<< HEAD
-        className="rounded-squircle border border-white/10 bg-panel/60 backdrop-blur p-6 flex flex-col gap-4 hover:border-purple/40 transition-colors h-full"
-=======
         // No backdrop-blur here (unlike this file's modal overlay below):
         // this card repeats N times in the /bounties grid and the
         // homepage preview, and unlike a one-off modal backdrop, a
@@ -69,16 +50,11 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
         // panel opacity instead (60% -> 85%) so the card still reads as
         // solid rather than see-through without the blur.
         className="rounded-squircle border border-white/10 bg-panel/85 p-6 flex flex-col gap-4 hover:border-purple/40 transition-colors h-full"
->>>>>>> fix/password-reset-otp-admin-api
       >
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0">
             {bounty.logo_url ? (
-<<<<<<< HEAD
-              <img src={bounty.logo_url} alt={bounty.project_name} className="w-full h-full object-cover" />
-=======
               <img src={bounty.logo_url} alt={bounty.project_name} loading="lazy" className="w-full h-full object-cover" />
->>>>>>> fix/password-reset-otp-admin-api
             ) : (
               <span className="font-display font-bold text-sm">{bounty.project_name.slice(0, 2).toUpperCase()}</span>
             )}
@@ -87,10 +63,7 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
             <h3 className="font-display font-semibold text-base leading-tight truncate">{bounty.title}</h3>
             <span className="text-xs text-white/40">{bounty.project_name}</span>
           </div>
-<<<<<<< HEAD
-=======
           <ReportButton targetType="bounty" targetId={bounty.id} className="ml-auto shrink-0 mt-1" />
->>>>>>> fix/password-reset-otp-admin-api
         </div>
 
         <p className="text-sm text-white/60 leading-relaxed line-clamp-3">{bounty.description}</p>
@@ -98,12 +71,9 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
         <div className="flex flex-wrap gap-2">
           <span className={`text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border ${difficultyStyles[bounty.difficulty]}`}>{bounty.difficulty}</span>
           <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/15 text-white/50">{bounty.category}</span>
-<<<<<<< HEAD
-=======
           {bounty.is_closed && (
             <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/20 text-white/50">Closed</span>
           )}
->>>>>>> fix/password-reset-otp-admin-api
         </div>
 
         {bounty.skills_needed && (
@@ -115,21 +85,6 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
             <div className="font-mono font-semibold text-gold">{bounty.reward}</div>
             <div className="text-[10px] text-white/35 font-mono mt-0.5">Deadline · {formatDate(bounty.deadline)}</div>
           </div>
-<<<<<<< HEAD
-          <button onClick={handleApplyClick} className="text-sm font-semibold text-purple-light hover:text-white transition-colors">
-            Apply →
-          </button>
-        </div>
-      </motion.div>
-
-      <AnimatePresence>{open && <ApplyModal bounty={bounty} onClose={() => setOpen(false)} />}</AnimatePresence>
-    </>
-  )
-}
-
-function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }) {
-  const { profile } = useAuth()
-=======
           {unavailable ? (
             <span className="text-sm font-semibold text-white/30 cursor-not-allowed" title="This bounty is no longer accepting applications">
               Applications closed
@@ -149,16 +104,12 @@ function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }
 
 function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }) {
   const { profile, refreshProfile } = useAuth()
->>>>>>> fix/password-reset-otp-admin-api
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-<<<<<<< HEAD
-=======
   const noCredits = (profile?.credits ?? 0) <= 0
 
->>>>>>> fix/password-reset-otp-admin-api
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!profile) return
@@ -167,20 +118,6 @@ function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }
     const data = new FormData(form)
     setSubmitting(true)
     try {
-<<<<<<< HEAD
-      const { error: err } = await supabase.from('applications').insert({
-        bounty_id: bounty.id,
-        user_id: profile.id,
-        full_name: profile.full_name || profile.username || '',
-        email: profile.email || '',
-        portfolio_link: String(data.get('portfolio_link') || ''),
-        message: String(data.get('message') || ''),
-      })
-      if (err) throw err
-      setDone(true)
-    } catch {
-      setError('Something went wrong submitting your application — please try again.')
-=======
       // Applying costs 1 credit. This goes through the apply_to_bounty()
       // Postgres function (not a direct table insert) so the credit
       // check-and-deduct happens atomically server-side — it can't be
@@ -196,7 +133,6 @@ function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }
     } catch (err) {
       logError('[BountyCard] apply_to_bounty failed:', err)
       setError(getErrorMessage(err, 'Something went wrong submitting your application — please try again.'))
->>>>>>> fix/password-reset-otp-admin-api
     } finally {
       setSubmitting(false)
     }
@@ -230,12 +166,6 @@ function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }
               <a href="/dashboard" className="text-purple-light">dashboard</a>.
             </p>
           </div>
-<<<<<<< HEAD
-        ) : (
-          <>
-            <h3 className="font-display font-semibold text-lg mb-1">Apply to {bounty.title}</h3>
-            <p className="text-white/40 text-xs mb-5">{bounty.project_name} · applying as {profile?.full_name || profile?.username}</p>
-=======
         ) : noCredits ? (
           <div className="text-center py-6">
             <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-amber-300/10 border border-amber-300/30 flex items-center justify-center text-xl">⚠</div>
@@ -251,7 +181,6 @@ function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }
             <p className="text-white/40 text-xs mb-5">
               {bounty.project_name} · applying as {profile?.full_name || profile?.username} · costs 1 credit ({profile?.credits} remaining)
             </p>
->>>>>>> fix/password-reset-otp-admin-api
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
               <input name="portfolio_link" type="url" placeholder="Portfolio / GitHub link" className="input" />
               <textarea name="message" rows={3} placeholder="Why you're a fit (optional)" className="input resize-y" />

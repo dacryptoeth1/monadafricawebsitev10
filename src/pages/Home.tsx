@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { CalendarDays, Newspaper, Target, Users } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import type { Bounty, EventItem, NewsItem, SiteSettings } from '../types'
-import { defaultSiteSettings } from '../types'
-=======
 import { memo, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Boxes, CalendarDays, ChevronLeft, ChevronRight, ExternalLink, Handshake, Newspaper, Target, Users } from 'lucide-react'
@@ -13,20 +5,12 @@ import { supabase } from '../lib/supabase'
 import type { Bounty, EcosystemProject, EventItem, NewsItem, Partner, PublicProfile, SiteContent, SiteSettings } from '../types'
 import { defaultSiteSettings } from '../types'
 import { useSiteSettings } from '../hooks/useSiteSettings'
->>>>>>> fix/password-reset-otp-admin-api
 import Reveal from '../components/Reveal'
 import Counter from '../components/Counter'
 import AfricaNetworkMap from '../components/AfricaNetworkMap'
 import { KentePattern } from '../components/PatternBackground'
 import BountyCard from '../components/BountyCard'
 import EmptyState from '../components/EmptyState'
-<<<<<<< HEAD
-
-export default function Home() {
-  const [bounties, setBounties] = useState<Bounty[] | null>(null)
-  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings)
-  const [liveBountyCount, setLiveBountyCount] = useState(0)
-=======
 import MonadMark from '../components/MonadMark'
 
 const defaultSiteContent: SiteContent = {
@@ -51,33 +35,10 @@ export default function Home() {
   const [completedBounties, setCompletedBounties] = useState(0)
   const [ecosystemProjects, setEcosystemProjects] = useState<EcosystemProject[] | null>(null)
   const [partners, setPartners] = useState<Partner[] | null>(null)
->>>>>>> fix/password-reset-otp-admin-api
   const [events, setEvents] = useState<EventItem[] | null>(null)
   const [news, setNews] = useState<NewsItem[] | null>(null)
 
   useEffect(() => {
-<<<<<<< HEAD
-    supabase
-      .from('bounties')
-      .select('*', { count: 'exact' })
-      .eq('status', 'approved')
-      .order('created_at', { ascending: false })
-      .then(({ data, count }) => {
-        setBounties(((data as Bounty[]) ?? []).slice(0, 3))
-        setLiveBountyCount(count ?? 0)
-      })
-  }, [])
-
-  useEffect(() => {
-    supabase
-      .from('site_settings')
-      .select('*')
-      .eq('id', 1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setSettings(data as SiteSettings)
-      })
-=======
     // Two lightweight queries instead of one: the homepage only ever
     // renders 3 bounty cards, so fetching every approved bounty's full
     // row (previously unbounded — every column, every row) just to
@@ -98,7 +59,6 @@ export default function Home() {
       .eq('status', 'approved')
       .eq('is_deleted', false)
       .then(({ count }) => setLiveBountyCount(count ?? 0))
->>>>>>> fix/password-reset-otp-admin-api
   }, [])
 
   useEffect(() => {
@@ -106,16 +66,6 @@ export default function Home() {
     supabase.from('news').select('*').order('published_at', { ascending: false }).limit(3).then(({ data }) => setNews((data as NewsItem[]) ?? []))
   }, [])
 
-<<<<<<< HEAD
-  return (
-    <>
-      <Hero />
-      <StatsStrip settings={settings} liveBountyCount={liveBountyCount} />
-      <BountiesPreview bounties={bounties} settings={settings} />
-      <EventsSection events={events} />
-      <NewsSection news={news} />
-      <FeaturedBuilders />
-=======
   useEffect(() => {
     supabase
       .from('site_content')
@@ -167,15 +117,11 @@ export default function Home() {
       <FaqSection items={content.faq_items} />
       <LeaderboardPreview />
       <FeaturedContributors />
->>>>>>> fix/password-reset-otp-admin-api
       <FinalCta />
     </>
   )
 }
 
-<<<<<<< HEAD
-function Hero() {
-=======
 function renderHeroTitle(title: string) {
   // Keeps the existing visual design (gradient-highlighted "Monad") even
   // though the title text itself is now CMS-editable — splits on the
@@ -198,7 +144,6 @@ function Hero({ content, settings }: { content: SiteContent; settings: SiteSetti
     content.hero_secondary_href === 'discord' ? settings.discord_url : content.hero_secondary_href || settings.discord_url
   const secondaryIsExternal = secondaryHref.startsWith('http')
 
->>>>>>> fix/password-reset-otp-admin-api
   return (
     <section className="relative min-h-[92vh] flex items-center pt-32 pb-20 overflow-hidden">
       <div className="absolute inset-0 -z-20 bg-gradient-to-br from-ink via-ink to-[#140a1e]" />
@@ -206,8 +151,6 @@ function Hero({ content, settings }: { content: SiteContent; settings: SiteSetti
       <div className="absolute -z-10 w-[500px] h-[500px] rounded-full bg-sunset-coral blur-[130px] opacity-[0.18] bottom-[-200px] left-[-140px]" />
       <KentePattern className="absolute inset-0 -z-10 text-white opacity-[0.03]" />
       <AfricaNetworkMap className="absolute -z-10 w-[780px] max-w-[90vw] opacity-40 right-[-8%] top-1/2 -translate-y-1/2" />
-<<<<<<< HEAD
-=======
       <img
         src="/brand/monad-logo-white.png"
         alt=""
@@ -215,15 +158,11 @@ function Hero({ content, settings }: { content: SiteContent; settings: SiteSetti
         aria-hidden="true"
         className="absolute -z-10 w-[900px] max-w-[130vw] opacity-[0.05] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none select-none"
       />
->>>>>>> fix/password-reset-otp-admin-api
 
       <div className="max-w-7xl mx-auto px-6 w-full">
         <div className="max-w-2xl">
           <Reveal>
-<<<<<<< HEAD
-=======
             <div className="mb-6"><MonadMark size={36} /></div>
->>>>>>> fix/password-reset-otp-admin-api
             <span className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-purple-light">
               <span className="w-1.5 h-1.5 rounded-sm bg-purple shadow-[0_0_10px_#8C79FF]" />
               The gateway to the Monad ecosystem
@@ -231,26 +170,6 @@ function Hero({ content, settings }: { content: SiteContent; settings: SiteSetti
           </Reveal>
           <Reveal delay={100}>
             <h1 className="font-display font-semibold text-[clamp(2.4rem,6vw,4.4rem)] leading-[1.05] tracking-tight mt-5 mb-6">
-<<<<<<< HEAD
-              Building the Future of{' '}
-              <span className="bg-gradient-to-r from-sunset-amber via-purple-light to-purple bg-clip-text text-transparent">Monad</span> in Africa.
-            </h1>
-          </Reveal>
-          <Reveal delay={200}>
-            <p className="text-lg text-white/60 leading-relaxed max-w-xl mb-9">
-              Monad Africa connects builders, developers, students, creators, founders, and
-              communities across the continent to real opportunities in the Monad ecosystem.
-            </p>
-          </Reveal>
-          <Reveal delay={300}>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/bounties" className="px-7 py-4 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
-                Explore Bounties →
-              </Link>
-              <a href={defaultSiteSettings.discord_url} target="_blank" rel="noopener noreferrer" className="px-7 py-4 rounded-full font-semibold border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">
-                Join Community
-              </a>
-=======
               {renderHeroTitle(content.hero_title)}
             </h1>
           </Reveal>
@@ -271,7 +190,6 @@ function Hero({ content, settings }: { content: SiteContent; settings: SiteSetti
                   {content.hero_secondary_label || 'Join Community'}
                 </Link>
               )}
->>>>>>> fix/password-reset-otp-admin-api
             </div>
           </Reveal>
         </div>
@@ -280,13 +198,6 @@ function Hero({ content, settings }: { content: SiteContent; settings: SiteSetti
   )
 }
 
-<<<<<<< HEAD
-function StatsStrip({ settings, liveBountyCount }: { settings: SiteSettings; liveBountyCount: number }) {
-  const stats = [
-    { label: 'Community Members', value: settings.discord_members },
-    { label: 'Active Builders', value: settings.builders_onboarded },
-    { label: 'Live Bounties', value: liveBountyCount },
-=======
 function StatsStrip({
   settings,
   liveBountyCount,
@@ -304,7 +215,6 @@ function StatsStrip({
     { label: 'Active Builders', value: settings.builders_onboarded },
     { label: 'Live Bounties', value: liveBountyCount },
     { label: 'Completed Bounties', value: completedBounties },
->>>>>>> fix/password-reset-otp-admin-api
     { label: 'Countries Represented', value: settings.countries_reached },
   ]
   return (
@@ -313,11 +223,7 @@ function StatsStrip({
         <Reveal className="mb-8">
           <span className="font-mono text-xs uppercase tracking-wider text-purple-light">Live Stats</span>
         </Reveal>
-<<<<<<< HEAD
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-=======
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
->>>>>>> fix/password-reset-otp-admin-api
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={i * 70}>
               <div className="text-center">
@@ -332,15 +238,11 @@ function StatsStrip({
   )
 }
 
-<<<<<<< HEAD
-function BountiesPreview({ bounties, settings }: { bounties: Bounty[] | null; settings: SiteSettings }) {
-=======
 // Wrapped in memo: `bounties` and `settings` are each their own stable
 // state slot in Home() (only change reference when that specific data
 // actually arrives/updates), so this section doesn't need to re-render
 // just because an unrelated sibling section's data changed.
 const BountiesPreview = memo(function BountiesPreview({ bounties, settings }: { bounties: Bounty[] | null; settings: SiteSettings }) {
->>>>>>> fix/password-reset-otp-admin-api
   return (
     <section className="py-28">
       <div className="max-w-7xl mx-auto px-6">
@@ -378,11 +280,6 @@ const BountiesPreview = memo(function BountiesPreview({ bounties, settings }: { 
       </div>
     </section>
   )
-<<<<<<< HEAD
-}
-
-function EventsSection({ events }: { events: EventItem[] | null }) {
-=======
 })
 
 function EcosystemLogoGrid({ projects }: { projects: EcosystemProject[] | null }) {
@@ -532,7 +429,6 @@ function PartnersSection({ partners }: { partners: Partner[] | null }) {
 }
 
 const EventsSection = memo(function EventsSection({ events }: { events: EventItem[] | null }) {
->>>>>>> fix/password-reset-otp-admin-api
   return (
     <section className="py-28 bg-panel/30">
       <div className="max-w-7xl mx-auto px-6">
@@ -564,15 +460,9 @@ const EventsSection = memo(function EventsSection({ events }: { events: EventIte
       </div>
     </section>
   )
-<<<<<<< HEAD
-}
-
-function NewsSection({ news }: { news: NewsItem[] | null }) {
-=======
 })
 
 const NewsSection = memo(function NewsSection({ news }: { news: NewsItem[] | null }) {
->>>>>>> fix/password-reset-otp-admin-api
   return (
     <section className="py-28">
       <div className="max-w-7xl mx-auto px-6">
@@ -602,27 +492,6 @@ const NewsSection = memo(function NewsSection({ news }: { news: NewsItem[] | nul
       </div>
     </section>
   )
-<<<<<<< HEAD
-}
-
-function FeaturedBuilders() {
-  // No public builder-profile system exists yet in this build (not part of
-  // the current schema), so this is an honest empty state rather than
-  // invented names/photos. Wire this up to a `builders` table the same way
-  // `projects`/`partners` work whenever you want to add it.
-  return (
-    <section className="py-28 bg-panel/30">
-      <div className="max-w-7xl mx-auto px-6">
-        <Reveal>
-          <span className="font-mono text-xs uppercase tracking-wider text-purple-light">Featured builders</span>
-          <h2 className="font-display font-semibold text-4xl md:text-5xl mt-4 mb-12 max-w-xl">The people behind the ecosystem.</h2>
-        </Reveal>
-        <EmptyState Icon={Users} message="No featured builders yet — this section highlights real African builders, developers, and creators as they're added by the Monad Africa team." />
-      </div>
-    </section>
-  )
-}
-=======
 })
 
 // Wrapped in memo: takes no props and manages its own data internally,
@@ -716,7 +585,6 @@ const FeaturedContributors = memo(function FeaturedContributors() {
     </section>
   )
 })
->>>>>>> fix/password-reset-otp-admin-api
 
 function FinalCta() {
   return (
@@ -740,8 +608,6 @@ function FinalCta() {
     </section>
   )
 }
-<<<<<<< HEAD
-=======
 
 function RoadmapSection({ items }: { items: SiteContent['roadmap_items'] }) {
   if (!items || items.length === 0) return null
@@ -809,4 +675,3 @@ function FaqSection({ items }: { items: SiteContent['faq_items'] }) {
     </section>
   )
 }
->>>>>>> fix/password-reset-otp-admin-api

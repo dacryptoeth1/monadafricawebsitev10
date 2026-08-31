@@ -5,11 +5,6 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-<<<<<<< HEAD
-  }
-  body {
-    font-family: 'Inter', sans-serif;
-=======
     /* Defense-in-depth against horizontal scroll/jank on mobile: most
        sections already contain their own oversized decorative elements
        with overflow-hidden (see Home.tsx's Hero), but a single
@@ -21,7 +16,6 @@
   body {
     font-family: 'Inter', sans-serif;
     overflow-x: hidden;
->>>>>>> fix/password-reset-otp-admin-api
   }
   ::selection {
     background: #6E54FF;

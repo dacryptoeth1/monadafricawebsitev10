@@ -1,36 +1,5 @@
 # Monad Africa
 
-<<<<<<< HEAD
-Vite + React + TypeScript + Tailwind + Framer Motion + Lucide React, backed by Supabase
-(Auth, Database, Storage, RLS).
-
-## 1. Run the database migration
-
-Supabase Dashboard → your project → **SQL Editor → New query** → paste the entire contents
-of `supabase/migrations/0001_init.sql` → **Run**.
-
-This single file creates every table, enables RLS with real policies on all of them, and
-creates the three storage buckets (`logos`, `resources`, `videos`) with their access
-policies. Nothing else to run separately.
-
-## 2. Create your admin account
-
-If you don't already have one: **Authentication → Users → Add user** → enter an email and
-password.
-
-Then, in **SQL Editor**, run (swap in that user's email):
-
-```sql
-insert into public.admins (id)
-select id from auth.users where email = 'you@example.com';
-```
-
-That's the real access control — `/admin` checks this table, not just whether someone is
-logged in. Without this row, an account can sign in at `/admin` but will see a "Not
-authorized" screen.
-
-## 3. Install and run
-=======
 Vite + React + TypeScript + Tailwind + Framer Motion + Lucide React + Recharts, backed by
 Supabase (Auth, Database, Storage, RLS). Production: https://monadafricans.netlify.app
 
@@ -42,74 +11,21 @@ Run these in the Supabase SQL Editor, in order, if you haven't already:
 2. `0002_user_platform.sql`
 3. `0003_protect_profile_fields.sql`
 4. `0004_profile_extras_and_credits.sql`
-5. `0005_admin_control_panel.sql` ← **new this round**
+5. `0005_admin_control_panel.sql`
 
 All are self-contained (`IF NOT EXISTS` / `CREATE OR REPLACE` throughout), safe to run even
 if you're unsure an earlier one fully succeeded.
->>>>>>> fix/password-reset-otp-admin-api
 
 ```bash
 npm install
 npm run dev
 ```
 
-<<<<<<< HEAD
-`.env.local` already has your Supabase URL and anon key filled in.
-
-## 4. Try it
-
-- `/host-bounty` — submit a bounty with a logo image upload (goes to Supabase Storage), and
-  a database row with `status = 'pending'`.
-- `/admin` — sign in, approve it under **Pending Bounties**.
-- It now shows up on `/` and `/bounties`. Anyone can click **Apply** on a bounty card to
-  submit an application (no account needed) — view those under **Applications** in admin.
-- Add ecosystem projects, resources, videos, and partners from their respective admin tabs;
-  they show up immediately on `/ecosystem`, `/beginner-hub`, and `/partners`.
-- Edit community stats under **Settings** — they show on the homepage and `/community`.
-
-## 5. Deploy to Netlify
-
-Push to a Git repo and connect it, or `npm run build` and drag the `dist/` folder in.
-Build command `npm run build`, publish directory `dist`. Set `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY` in Netlify's environment variables (same values as `.env.local`) —
-don't commit `.env.local` itself. `netlify.toml` is already set up for SPA routing so
-`/bounties`, `/admin`, etc. work on direct load/refresh.
-
-## How the important parts work
-
-- **No public sign-up.** The only way to get a Supabase Auth account is via the Dashboard,
-  and only accounts listed in the `admins` table can write anything admin-only. `/admin`
-  has no nav link, but that's just obscurity — the real boundary is the RLS policies plus
-  the `admins` table check, enforced by Postgres itself.
-- **Bounty submissions** can only ever be inserted with `status = 'pending'` — enforced by
-  the RLS policy on `insert`, not just the form.
-- **Public reads** of `bounties` only return `status = 'approved'` rows unless you're an
-  admin.
-- **Applications** are insert-only for the public (anyone can apply, no login) and
-  select/update/delete-only for admins — a builder can't read other people's applications.
-- **Storage**: the `logos` bucket accepts public uploads (needed since there are no public
-  accounts to gate it by), but a file only becomes visible anywhere until an admin approves
-  the bounty referencing its URL. `resources` and `videos` buckets are admin-upload-only.
-
-## Design notes
-
-- Colors: Monad purple (`#6E54FF`) as primary, black/near-black base, soft lavender, warm
-  gold accents, and a sunset gradient (coral → gold → purple) used sparingly for emphasis.
-- African-inspired elements: a low-opacity geometric pattern (`KentePattern`) as background
-  texture, wavy `ContourLines` behind section headers evoking topographic maps, and a
-  glowing `AfricaNetworkMap` connecting builder hubs across the continent in the hero.
-- The beginners explainer video is kept on `/beginner-hub` as requested, embedded via
-  iframe (works fine on a real deployed site — this isn't inside a sandboxed preview).
-
-## Not built (flag if you want these)
-
-No public builder-profile system (the "Featured Builders" section is an honest empty state
-— wire it to a `builders` table the same way `projects`/`partners` work if you want it), no
-page transition routing animation between pages (section-level scroll reveals are done with
-Framer Motion throughout), no image optimization/CDN pipeline beyond what Supabase Storage
-provides natively.
-=======
 `.env.local` already has your Supabase URL and anon key — no new environment variables.
+Password reset (`src/pages/ForgotPassword.tsx` / `AuthContext.tsx`) uses Supabase's native
+6-digit-code recovery flow directly from the client (anon key only) — see the comment block
+in `.env.example` for the full explanation and the Supabase dashboard SMTP/email-template
+setup it depends on.
 
 ## Manual steps
 
@@ -140,6 +56,26 @@ token, so those stay manual permanently — labeled as such on the Community pag
   OAuth credentials (Google Cloud Console / Apple Developer account) — the buttons and code
   are already built, they just show a graceful "not available yet" message until this is done.
 
+## Try it
+
+- `/host-bounty` — submit a bounty with a logo image upload (goes to Supabase Storage), and
+  a database row with `status = 'pending'`.
+- `/admin` — sign in, approve it under **Pending Bounties**.
+- It now shows up on `/` and `/bounties`. Anyone can click **Apply** on a bounty card to
+  submit an application (no account needed) — view those under **Applications** in admin.
+- Add ecosystem projects, resources, videos, and partners from their respective admin tabs;
+  they show up immediately on `/ecosystem`, `/beginner-hub`, and `/partners`.
+- Edit community stats under **Settings** — they show on the homepage and `/community`.
+
+## Deploy to Netlify
+
+Push to a Git repo and connect it, or `npm run build` and drag the `dist/` folder in.
+Build command `npm run build`, publish directory `dist`. Set `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` in Netlify's environment variables (same values as `.env.local`) —
+don't commit `.env.local` itself. `netlify.toml` is already set up for SPA routing so
+`/bounties`, `/admin`, etc. work on direct load/refresh, and points Netlify Functions at
+`netlify/functions` for the server-side event-verification endpoints.
+
 ## What's new this round
 
 ### Role system
@@ -161,8 +97,7 @@ token, so those stay manual permanently — labeled as such on the Community pag
 - **Homepage**: edit hero title/subtitle/buttons, footer tagline, roadmap, and FAQ — saved
   straight to the database, live on the homepage immediately with no code changes.
 - **Community stats** (Settings tab): X and Telegram manual fields with weekly/daily deltas,
-  Discord live-widget toggle + manual fallback fields — seeded with the real numbers you
-  gave me (1,103 X / 2,587 Telegram / 1,982 Discord / 132 online).
+  Discord live-widget toggle + manual fallback fields.
 - **Bounties**: added Close/Reopen (distinct from approve/reject — a bounty can be approved
   and later closed once filled, tracked separately as "completed").
 
@@ -175,6 +110,22 @@ token, so those stay manual permanently — labeled as such on the Community pag
 - **Announcement banner**: pinned announcements show as a slim strip inside the existing
   nav bar (not a separate floating element, so it doesn't disturb the site's layout).
 - **Profile**: added GitHub and Wallet Address fields.
+
+## How the important parts work
+
+- **No public sign-up to `/admin`.** Only accounts listed in the `admins` table (with
+  `role = 'super_admin'`) can reach the admin panel. `/admin` has no nav link, but that's
+  just obscurity — the real boundary is the RLS policies plus the `admins` table check,
+  enforced by Postgres itself.
+- **Bounty submissions** can only ever be inserted with `status = 'pending'` — enforced by
+  the RLS policy on `insert`, not just the form.
+- **Public reads** of `bounties` only return `status = 'approved'` rows unless you're an
+  admin.
+- **Applications** are insert-only for the public (anyone can apply, no login) and
+  select/update/delete-only for admins — a builder can't read other people's applications.
+- **Storage**: the `logos` bucket accepts public uploads (needed since there are no public
+  accounts to gate it by), but a file only becomes visible anywhere until an admin approves
+  the bounty referencing its URL. `resources` and `videos` buckets are admin-upload-only.
 
 ## Two hard platform limits (flagged honestly, not worked around)
 
@@ -202,11 +153,29 @@ token, so those stay manual permanently — labeled as such on the Community pag
 - Roadmap/FAQ default to empty and simply don't render — add content in Admin → Homepage
   whenever you're ready.
 
+## Design notes
+
+- Colors: Monad purple (`#6E54FF`) as primary, black/near-black base, soft lavender, warm
+  gold accents, and a sunset gradient (coral → gold → purple) used sparingly for emphasis.
+- African-inspired elements: a low-opacity geometric pattern (`KentePattern`) as background
+  texture, wavy `ContourLines` behind section headers evoking topographic maps, and a
+  glowing `AfricaNetworkMap` connecting builder hubs across the continent in the hero.
+- The beginners explainer video is kept on `/beginner-hub` as requested, embedded via
+  iframe (works fine on a real deployed site — this isn't inside a sandboxed preview).
+
+## Not built (flag if you want these)
+
+No public builder-profile system (the "Featured Builders" section is an honest empty state
+— wire it to a `builders` table the same way `projects`/`partners` work if you want it), no
+page transition routing animation between pages (section-level scroll reveals are done with
+Framer Motion throughout), no image optimization/CDN pipeline beyond what Supabase Storage
+provides natively.
+
 ## Production checklist status
 
 | Item | Status |
 |---|---|
-| Build succeeds | ✅ verified (`tsc -b && vite build`, clean, 2603 modules) |
+| Build succeeds | ✅ verified (`tsc -b && vite build`) |
 | No console errors | ⚠️ not verified in an actual browser — no browser available in this environment |
 | No localhost references | ✅ verified (grep — only a code comment mentions the word) |
 | Works on Netlify | ✅ same `netlify.toml` SPA redirect config as before |
@@ -216,5 +185,4 @@ token, so those stay manual permanently — labeled as such on the Community pag
 ## Performance note
 Recharts (used only in Admin → Overview) added real weight, but it's isolated to the
 already-lazy-loaded `/admin` chunk — the public-facing bundle size is unchanged from last
-round (~520KB / 155KB gzipped for the main chunk).
->>>>>>> fix/password-reset-otp-admin-api
+round.

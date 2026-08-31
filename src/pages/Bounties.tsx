@@ -1,16 +1,8 @@
-<<<<<<< HEAD
-import { useEffect, useState } from 'react'
-import { Target } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import type { Bounty, BountyCategory, SiteSettings } from '../types'
-import { defaultSiteSettings } from '../types'
-=======
 import { useEffect, useMemo, useState } from 'react'
 import { Search, Target } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { Bounty, BountyCategory } from '../types'
 import { useSiteSettings } from '../hooks/useSiteSettings'
->>>>>>> fix/password-reset-otp-admin-api
 import BountyCard from '../components/BountyCard'
 import EmptyState from '../components/EmptyState'
 import Reveal from '../components/Reveal'
@@ -20,35 +12,19 @@ const CATEGORIES: (BountyCategory | 'All')[] = ['All', 'Development', 'Design', 
 export default function Bounties() {
   const [bounties, setBounties] = useState<Bounty[] | null>(null)
   const [active, setActive] = useState<BountyCategory | 'All'>('All')
-<<<<<<< HEAD
-  const [settings, setSettings] = useState<SiteSettings>(defaultSiteSettings)
-=======
   const [search, setSearch] = useState('')
   const settings = useSiteSettings()
->>>>>>> fix/password-reset-otp-admin-api
 
   useEffect(() => {
     supabase
       .from('bounties')
       .select('*')
       .eq('status', 'approved')
-<<<<<<< HEAD
-=======
       .eq('is_deleted', false)
->>>>>>> fix/password-reset-otp-admin-api
       .order('created_at', { ascending: false })
       .then(({ data }) => setBounties((data as Bounty[]) ?? []))
   }, [])
 
-<<<<<<< HEAD
-  useEffect(() => {
-    supabase.from('site_settings').select('*').eq('id', 1).maybeSingle().then(({ data }) => {
-      if (data) setSettings(data as SiteSettings)
-    })
-  }, [])
-
-  const filtered = bounties?.filter((b) => active === 'All' || b.category === active) ?? null
-=======
   // Memoized so this list is only recomputed when its actual inputs
   // change, not on every unrelated re-render of the page — combined
   // with BountyCard now being memo()'d, typing in the search box no
@@ -69,7 +45,6 @@ export default function Bounties() {
         }) ?? null,
     [bounties, active, search]
   )
->>>>>>> fix/password-reset-otp-admin-api
 
   return (
     <section className="pt-36 pb-28 min-h-screen">
@@ -80,8 +55,6 @@ export default function Bounties() {
           <p className="text-white/55 max-w-xl mb-10">Every bounty here has been reviewed and approved by the Monad Africa team.</p>
         </Reveal>
 
-<<<<<<< HEAD
-=======
         <Reveal className="flex flex-col sm:flex-row sm:items-center gap-3 mb-8">
           <div className="relative flex-1 max-w-sm">
             <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
@@ -94,7 +67,6 @@ export default function Bounties() {
           </div>
         </Reveal>
 
->>>>>>> fix/password-reset-otp-admin-api
         <Reveal className="flex flex-wrap gap-2 mb-12">
           {CATEGORIES.map((c) => (
             <button
@@ -115,11 +87,7 @@ export default function Bounties() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="grid grid-cols-1">
-<<<<<<< HEAD
-            {active === 'All' ? (
-=======
             {active === 'All' && !search.trim() ? (
->>>>>>> fix/password-reset-otp-admin-api
               <EmptyState
                 Icon={Target}
                 message={'No active bounties yet.\n\nJoin the Monad Africa community to get notified when new opportunities go live.'}
@@ -132,11 +100,7 @@ export default function Bounties() {
             ) : (
               <EmptyState
                 Icon={Target}
-<<<<<<< HEAD
-                message={`No approved ${active.toLowerCase()} bounties right now — check back soon or try another category.`}
-=======
                 message={search.trim() ? `No bounties match "${search}" — try a different search or category.` : `No approved ${active.toLowerCase()} bounties right now — check back soon or try another category.`}
->>>>>>> fix/password-reset-otp-admin-api
                 action={{ label: 'Host a Bounty', href: '/host-bounty' }}
               />
             )}

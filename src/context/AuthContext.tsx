@@ -1,14 +1,7 @@
-<<<<<<< HEAD
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
-import type { Profile } from '../types'
-=======
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { AdminRole, Profile } from '../types'
->>>>>>> fix/password-reset-otp-admin-api
 
 interface SignUpFields {
   full_name: string
@@ -23,25 +16,17 @@ interface AuthValue {
   profile: Profile | null
   loading: boolean
   isAdmin: boolean
-<<<<<<< HEAD
-=======
   adminRole: AdminRole | null
   isSuperAdmin: boolean
   banned: boolean
->>>>>>> fix/password-reset-otp-admin-api
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, fields: SignUpFields) => Promise<void>
   signOut: () => Promise<void>
   resetPasswordRequest: (email: string) => Promise<void>
-<<<<<<< HEAD
-  updatePassword: (newPassword: string) => Promise<void>
-  refreshProfile: () => Promise<void>
-=======
   verifyPasswordResetOtp: (email: string, token: string) => Promise<void>
   updatePassword: (newPassword: string) => Promise<void>
   refreshProfile: () => Promise<void>
   resendVerificationEmail: (email: string) => Promise<void>
->>>>>>> fix/password-reset-otp-admin-api
 }
 
 const AuthContext = createContext<AuthValue | undefined>(undefined)
@@ -49,35 +34,14 @@ const AuthContext = createContext<AuthValue | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-<<<<<<< HEAD
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [loading, setLoading] = useState(true)
-=======
   const [adminRole, setAdminRole] = useState<AdminRole | null>(null)
   const [banned, setBanned] = useState(false)
   const [loading, setLoading] = useState(true)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
->>>>>>> fix/password-reset-otp-admin-api
 
   async function loadProfileAndAdmin(s: Session | null) {
     if (!s) {
       setProfile(null)
-<<<<<<< HEAD
-      setIsAdmin(false)
-      setLoading(false)
-      return
-    }
-    const [{ data: p }, { data: a }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', s.user.id).maybeSingle(),
-      supabase.from('admins').select('id').eq('id', s.user.id).maybeSingle(),
-    ])
-    setProfile((p as Profile) ?? null)
-    setIsAdmin(!!a)
-    setLoading(false)
-  }
-
-  useEffect(() => {
-=======
       setAdminRole(null)
       setBanned(false)
       setLoading(false)
@@ -149,14 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // getSession() reads the persisted session from storage (supabase-js
     // persists to localStorage by default) — this is what makes a login
     // survive a page refresh.
->>>>>>> fix/password-reset-otp-admin-api
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       loadProfileAndAdmin(data.session)
     })
-<<<<<<< HEAD
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-=======
     // supabase-js v2 also fires this listener immediately on subscribe,
     // with event "INITIAL_SESSION" and that exact same session — so
     // without the guard below, every single page load ran
@@ -169,15 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // behavior, only remove a wasted repeat of the same fetch.
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       if (event === 'INITIAL_SESSION') return
->>>>>>> fix/password-reset-otp-admin-api
       setSession(s)
       loadProfileAndAdmin(s)
     })
     return () => sub.subscription.unsubscribe()
   }, [])
 
-<<<<<<< HEAD
-=======
   // Lightweight "online" tracking: touch last_seen on load and every 2
   // minutes while the tab is open. "Online" in the admin dashboard is
   // then just "last_seen within the last 5 minutes" — no presence
@@ -193,7 +150,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.user.id])
 
->>>>>>> fix/password-reset-otp-admin-api
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
@@ -211,8 +167,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: fields.role,
           referred_by_code: fields.referredByCode || null,
         },
-<<<<<<< HEAD
-=======
         // Always the current deployed origin — never hardcoded to
         // localhost. On production this resolves to
         // https://monadafricans.netlify.app automatically. For the actual
@@ -220,15 +174,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // project's Auth → URL Configuration must also have this exact
         // origin set as the Site URL and listed under Redirect URLs —
         // that part can only be done from the Supabase dashboard.
->>>>>>> fix/password-reset-otp-admin-api
         emailRedirectTo: `${window.location.origin}/login`,
       },
     })
     if (error) throw error
   }
 
-<<<<<<< HEAD
-=======
   async function resendVerificationEmail(email: string) {
     const { error } = await supabase.auth.resend({
       type: 'signup',
@@ -238,17 +189,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }
 
->>>>>>> fix/password-reset-otp-admin-api
   async function signOut() {
     await supabase.auth.signOut()
   }
 
-<<<<<<< HEAD
-  async function resetPasswordRequest(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-=======
   // Supabase Auth's native 6-digit-code recovery flow — anon-key-only,
   // no service-role key, no server-side function, no redirect/link
   // involved at all. This sends Supabase's own built-in "Reset
@@ -276,7 +220,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // following updatePassword() call below has something to act on.
   async function verifyPasswordResetOtp(email: string, token: string) {
     const { error } = await supabase.auth.verifyOtp({ email, token, type: 'recovery' })
->>>>>>> fix/password-reset-otp-admin-api
     if (error) throw error
   }
 
@@ -291,9 +234,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-<<<<<<< HEAD
-      value={{ session, profile, loading, isAdmin, signIn, signUp, signOut, resetPasswordRequest, updatePassword, refreshProfile }}
-=======
       value={{
         session,
         profile,
@@ -311,7 +251,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         resendVerificationEmail,
       }}
->>>>>>> fix/password-reset-otp-admin-api
     >
       {children}
     </AuthContext.Provider>
