@@ -27,6 +27,7 @@ const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const ProjectBountyDashboard = lazy(() => import('./pages/ProjectBountyDashboard'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Leaderboard = lazy(() => import('./pages/Leaderboard'))
 const Settings = lazy(() => import('./pages/Settings'))
@@ -71,12 +72,34 @@ export default function App() {
                       <Route path="/leaderboard" element={<Leaderboard />} />
                       <Route path="/bounties" element={<Bounties />} />
                       <Route path="/events" element={<Events />} />
-                      <Route path="/host-bounty" element={<HostBounty />} />
+                      <Route
+                        path="/host-bounty"
+                        element={
+                          <RequireAuth>
+                            <HostBounty />
+                          </RequireAuth>
+                        }
+                      />
                       <Route path="/beginner-hub" element={<BeginnerHub />} />
                       <Route path="/ecosystem" element={<Ecosystem />} />
                       <Route path="/partners" element={<Partners />} />
                       <Route path="/team" element={<Team />} />
-                      <Route path="/partner" element={<Partner />} />
+                      <Route
+                        path="/partner"
+                        element={
+                          <RequireAuth>
+                            <Partner />
+                          </RequireAuth>
+                        }
+                      />
+                      <Route
+                        path="/my-bounty"
+                        element={
+                          <RequireAuth>
+                            <ProjectBountyDashboard />
+                          </RequireAuth>
+                        }
+                      />
                       <Route path="/contact" element={<Contact />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/signup" element={<Signup />} />

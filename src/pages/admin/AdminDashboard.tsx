@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { runAdminAction } from '../../lib/adminActions'
 import { logError } from '../../lib/errors'
-import type { Application, Bounty, EcosystemProject, Submission } from '../../types'
+import type { Application, Bounty, BountyCompletionReport, EcosystemProject, Submission } from '../../types'
 import AdminCollectionPanel from './AdminCollectionPanel'
 import type { BountyDraft } from './AdminBounties'
 import MonadMark from '../../components/MonadMark'
@@ -33,6 +33,7 @@ const AdminEventRegistrations = lazy(() => import('./AdminEventRegistrations'))
 const AdminCheckIn = lazy(() => import('./AdminCheckIn'))
 const AdminTeam = lazy(() => import('./AdminTeam'))
 const AdminPartnerships = lazy(() => import('./AdminPartnerships'))
+const AdminBountyRequests = lazy(() => import('./AdminBountyRequests'))
 
 // Safety cap on the three top-level lists this dashboard loads in full
 // (bounties/applications/submissions back every bounty-lifecycle tab
@@ -44,7 +45,7 @@ const AdminPartnerships = lazy(() => import('./AdminPartnerships'))
 // direct SQL) — flagged here rather than left as an invisible ceiling.
 const LIST_SAFETY_LIMIT = 1000
 
-type Tab = 'overview' | 'analytics' | 'bounties' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin' | 'team' | 'partnerships'
+type Tab = 'overview' | 'analytics' | 'bounties' | 'bounty_requests' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin' | 'team' | 'partnerships'
 
 const TABS: [Tab, string, boolean][] = [
   // third element: true = staff-admin+ only (hidden from Moderators)
@@ -54,6 +55,7 @@ const TABS: [Tab, string, boolean][] = [
   ['reports', 'Reports', false], // Moderator "View reports" capability
   ['checkin', 'Check-In', false], // door-duty task — moderators run this at events too
   ['partnerships', 'Partnerships', false], // BD enquiry triage — moderators handle these day-to-day too, not gated to staff-admin
+  ['bounty_requests', 'Bounty Requests', false], // same day-to-day triage as Partnerships, not gated to staff-admin
   ['overview', 'Overview', true],
   ['analytics', 'Analytics', true],
   ['roles', 'Roles', true],
@@ -82,6 +84,8 @@ export default function AdminDashboard() {
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [applications, setApplications] = useState<Application[]>([])
   const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [completionReports, setCompletionReports] = useState<BountyCompletionReport[]>([])
+  const [pendingBountyRequests, setPendingBountyRequests] = useState(0)
   const [bountiesError, setBountiesError] = useState<string | null>(null)
   const [applicationsError, setApplicationsError] = useState<string | null>(null)
   const [submissionsError, setSubmissionsError] = useState<string | null>(null)
@@ -89,7 +93,7 @@ export default function AdminDashboard() {
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    if (!isStaffAdmin && !['submissions', 'applications', 'users', 'reports', 'checkin', 'partnerships'].includes(tab)) {
+    if (!isStaffAdmin && !['submissions', 'applications', 'users', 'reports', 'checkin', 'partnerships', 'bounty_requests'].includes(tab)) {
       setTab('submissions')
     }
   }, [isStaffAdmin, tab])
@@ -113,8 +117,19 @@ export default function AdminDashboard() {
     setSubmissions((data as Submission[]) ?? [])
   }
 
+  async function loadCompletionReports() {
+    const { data, error } = await supabase.from('bounty_completion_reports').select('*')
+    if (error) { console.error('Failed to load completion reports:', error); return }
+    setCompletionReports((data as BountyCompletionReport[]) ?? [])
+  }
+
+  async function loadPendingBountyRequestsCount() {
+    const { count } = await supabase.from('bounty_hosting_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending_review')
+    setPendingBountyRequests(count ?? 0)
+  }
+
   useEffect(() => {
-    Promise.all([loadBounties(), loadApplications(), loadSubmissions()]).then(() => setLoading(false))
+    Promise.all([loadBounties(), loadApplications(), loadSubmissions(), loadCompletionReports(), loadPendingBountyRequestsCount()]).then(() => setLoading(false))
   }, [])
 
   function showToast(msg: string) {
@@ -203,6 +218,28 @@ export default function AdminDashboard() {
     )
     if (ok) await loadBounties()
   }
+
+  async function setCompletionStatus(b: Bounty, status: Bounty['completion_status']) {
+    const ok = await runAdminAction(
+      () => supabase.from('bounties').update({ completion_status: status }).eq('id', b.id),
+      showToast,
+      { successMessage: `Marked ${status.replace('_', ' ')}` },
+    )
+    if (ok) await loadBounties()
+  }
+
+  async function approveCompletionReport(b: Bounty) {
+    const { error } = await supabase.rpc('admin_approve_completion_report', { p_bounty_id: b.id })
+    if (error) { showToast(error.message); return }
+    showToast('Completion report approved — now public')
+    await Promise.all([loadBounties(), loadCompletionReports()])
+  }
+
+  const completionReportsByBounty = useMemo(() => {
+    const m: Record<string, BountyCompletionReport> = {}
+    completionReports.forEach((r) => { m[r.bounty_id] = r })
+    return m
+  }, [completionReports])
 
   async function createBounty(draft: BountyDraft): Promise<boolean> {
     // Admin-created bounties start as a draft (status: 'pending', the
@@ -326,6 +363,7 @@ export default function AdminDashboard() {
             >
               {label}
               {key === 'bounties' && draftBounties.length > 0 && ` (${draftBounties.length})`}
+              {key === 'bounty_requests' && pendingBountyRequests > 0 && ` (${pendingBountyRequests})`}
             </button>
           ))}
         </div>
@@ -352,6 +390,8 @@ export default function AdminDashboard() {
           <AdminCheckIn showToast={showToast} />
         ) : tab === 'partnerships' ? (
           <AdminPartnerships showToast={showToast} />
+        ) : tab === 'bounty_requests' ? (
+          <AdminBountyRequests showToast={showToast} />
         ) : tab === 'team' ? (
           <AdminTeam showToast={showToast} />
         ) : tab === 'event_registrations' ? (
@@ -462,6 +502,7 @@ export default function AdminDashboard() {
             loadError={bountiesError}
             submissionCounts={submissionCounts}
             applicationCounts={applicationCounts}
+            completionReports={completionReportsByBounty}
             showToast={showToast}
             onCreate={createBounty}
             onUpdate={updateBounty}
@@ -473,6 +514,8 @@ export default function AdminDashboard() {
             onSoftDelete={softDeleteBounty}
             onRestoreDeleted={restoreDeletedBounty}
             onToggleFeatured={toggleFeatured}
+            onSetCompletionStatus={setCompletionStatus}
+            onApproveCompletionReport={approveCompletionReport}
           />
         )}
         </Suspense>

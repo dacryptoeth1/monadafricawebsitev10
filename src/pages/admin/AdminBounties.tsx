@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Search } from 'lucide-react'
-import type { Bounty, BountyCategory, BountyDifficulty, BountyLifecycleStatus } from '../../types'
+import type { Bounty, BountyCategory, BountyCompletionReport, BountyDifficulty, BountyLifecycleStatus, VerificationBadgeType } from '../../types'
 import { bountyLifecycleStatus } from '../../types'
 
 export type BountyDraft = {
@@ -17,10 +17,12 @@ export type BountyDraft = {
   difficulty: BountyDifficulty
   reward: string
   deadline: string
+  verification_badge: VerificationBadgeType
 }
 
 const CATEGORIES: BountyCategory[] = ['Development', 'Design', 'Marketing', 'Community', 'Content']
 const DIFFICULTIES: BountyDifficulty[] = ['easy', 'medium', 'hard']
+const BADGES: VerificationBadgeType[] = ['verified', 'partner', 'community']
 
 const FILTERS: [BountyLifecycleStatus | 'all', string][] = [
   ['all', 'All'],
@@ -48,6 +50,7 @@ export default function AdminBounties({
   loadError,
   submissionCounts,
   applicationCounts,
+  completionReports,
   showToast,
   onCreate,
   onUpdate,
@@ -59,11 +62,14 @@ export default function AdminBounties({
   onSoftDelete,
   onRestoreDeleted,
   onToggleFeatured,
+  onSetCompletionStatus,
+  onApproveCompletionReport,
 }: {
   bounties: Bounty[]
   loadError?: string | null
   submissionCounts: Record<string, number>
   applicationCounts: Record<string, number>
+  completionReports: Record<string, BountyCompletionReport>
   showToast: (msg: string) => void
   onCreate: (draft: BountyDraft) => Promise<boolean>
   onUpdate: (id: string, draft: BountyDraft) => Promise<boolean>
@@ -75,6 +81,8 @@ export default function AdminBounties({
   onSoftDelete: (b: Bounty) => void
   onRestoreDeleted: (b: Bounty) => void
   onToggleFeatured: (b: Bounty) => void
+  onSetCompletionStatus: (b: Bounty, status: Bounty['completion_status']) => void
+  onApproveCompletionReport: (b: Bounty) => void
 }) {
   const [filter, setFilter] = useState<BountyLifecycleStatus | 'all'>('all')
   const [search, setSearch] = useState('')
@@ -142,6 +150,7 @@ export default function AdminBounties({
               bounty={b}
               submissionCount={submissionCounts[b.id] ?? 0}
               applicationCount={applicationCounts[b.id] ?? 0}
+              completionReport={completionReports[b.id]}
               onEdit={() => setEditing(b)}
               onApprove={() => onApprove(b)}
               onReject={() => onReject(b)}
@@ -151,6 +160,8 @@ export default function AdminBounties({
               onSoftDelete={() => onSoftDelete(b)}
               onRestoreDeleted={() => onRestoreDeleted(b)}
               onToggleFeatured={() => onToggleFeatured(b)}
+              onSetCompletionStatus={(status) => onSetCompletionStatus(b, status)}
+              onApproveCompletionReport={() => onApproveCompletionReport(b)}
             />
           ))}
         </div>
@@ -175,6 +186,7 @@ function BountyRow({
   bounty: b,
   submissionCount,
   applicationCount,
+  completionReport,
   onEdit,
   onApprove,
   onReject,
@@ -184,10 +196,13 @@ function BountyRow({
   onSoftDelete,
   onRestoreDeleted,
   onToggleFeatured,
+  onSetCompletionStatus,
+  onApproveCompletionReport,
 }: {
   bounty: Bounty
   submissionCount: number
   applicationCount: number
+  completionReport?: BountyCompletionReport
   onEdit: () => void
   onApprove: () => void
   onReject: () => void
@@ -197,9 +212,12 @@ function BountyRow({
   onSoftDelete: () => void
   onRestoreDeleted: () => void
   onToggleFeatured: () => void
+  onSetCompletionStatus: (status: Bounty['completion_status']) => void
+  onApproveCompletionReport: () => void
 }) {
   const lifecycle = bountyLifecycleStatus(b)
   const btn = 'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap'
+  const [showReport, setShowReport] = useState(false)
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
@@ -209,6 +227,10 @@ function BountyRow({
           <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${STATUS_BADGE[lifecycle]}`}>{lifecycle}</span>
           {b.status === 'rejected' && !b.is_deleted && <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-rose-300/25 text-rose-300/70">rejected</span>}
           {b.is_featured && !b.is_deleted && <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-gold/40 text-gold">featured</span>}
+          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-white/15 text-white/45">{b.verification_badge}</span>
+          {b.completion_status !== 'none' && (
+            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-purple/30 text-purple-light">{b.completion_status.replace('_', ' ')}</span>
+          )}
         </div>
         <div className="text-white/50 text-xs mb-2">{b.project_name} · {b.reward} · {b.category} · {b.difficulty}</div>
         <p className="text-white/40 text-xs leading-relaxed line-clamp-2 max-w-2xl mb-2">{b.description}</p>
@@ -218,9 +240,28 @@ function BountyRow({
           <span>{applicationCount} application{applicationCount === 1 ? '' : 's'}</span>
           <span>{submissionCount} submission{submissionCount === 1 ? '' : 's'}</span>
         </div>
+
+        {completionReport && completionReport.status !== 'draft' && (
+          <div className="mt-3">
+            <button onClick={() => setShowReport((s) => !s)} className="text-xs font-semibold text-gold hover:text-gold/80">
+              {showReport ? 'Hide' : 'Review'} completion report ({completionReport.status})
+            </button>
+            {showReport && (
+              <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 flex flex-col gap-2 text-xs text-white/55 max-w-2xl">
+                {completionReport.summary && <p>{completionReport.summary}</p>}
+                <div className="text-white/35 font-mono">{completionReport.submissions_count ?? 0} submissions · {completionReport.winners.length} winner(s) recorded</div>
+                {completionReport.status === 'submitted' && (
+                  <button onClick={onApproveCompletionReport} className={`${btn} self-start bg-emerald-400/15 text-emerald-300 border-emerald-400/30 hover:bg-emerald-400/25`}>
+                    Approve report & mark completed
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-wrap gap-2 lg:justify-end lg:max-w-[280px]">
+      <div className="flex flex-wrap gap-2 lg:justify-end lg:max-w-[300px]">
         {lifecycle === 'draft' && (
           <>
             <button onClick={onApprove} className={`${btn} bg-emerald-400/15 text-emerald-300 border-emerald-400/30 hover:bg-emerald-400/25`}>Activate</button>
@@ -235,7 +276,16 @@ function BountyRow({
           </>
         )}
         {lifecycle === 'closed' && (
-          <button onClick={onReopen} className={`${btn} bg-emerald-400/15 text-emerald-300 border-emerald-400/30 hover:bg-emerald-400/25`}>Reopen Bounty</button>
+          <>
+            <button onClick={onReopen} className={`${btn} bg-emerald-400/15 text-emerald-300 border-emerald-400/30 hover:bg-emerald-400/25`}>Reopen Bounty</button>
+            {b.completion_status === 'none' && <button onClick={() => onSetCompletionStatus('under_review')} className={`${btn} border-purple/30 text-purple-light hover:bg-purple/10`}>Mark Under Review</button>}
+          </>
+        )}
+        {b.completion_status === 'none' && lifecycle !== 'deleted' && lifecycle !== 'draft' && (
+          <button onClick={() => onSetCompletionStatus('cancelled')} className={`${btn} border-white/15 text-white/40 hover:bg-white/5`}>Cancel</button>
+        )}
+        {b.completion_status === 'under_review' && (
+          <button onClick={() => onSetCompletionStatus('expired')} className={`${btn} border-rose-300/25 text-rose-300/70 hover:bg-rose-300/10`}>Mark Expired</button>
         )}
         {lifecycle !== 'deleted' && (
           <>
@@ -255,7 +305,7 @@ function emptyDraft(): BountyDraft {
   return {
     project_name: '', logo_url: '', website: '', twitter: '', discord: '', contact_email: '',
     title: '', description: '', skills_needed: '', category: 'Development', difficulty: 'medium',
-    reward: '', deadline: '',
+    reward: '', deadline: '', verification_badge: 'community',
   }
 }
 
@@ -278,6 +328,7 @@ function BountyEditorModal({
           twitter: bounty.twitter ?? '', discord: bounty.discord ?? '', contact_email: bounty.contact_email,
           title: bounty.title, description: bounty.description, skills_needed: bounty.skills_needed ?? '',
           category: bounty.category, difficulty: bounty.difficulty, reward: bounty.reward, deadline: bounty.deadline,
+          verification_badge: bounty.verification_badge,
         }
       : emptyDraft(),
   )
@@ -326,6 +377,12 @@ function BountyEditorModal({
             <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Difficulty</label>
             <select value={draft.difficulty} onChange={(e) => set('difficulty', e.target.value as BountyDifficulty)} className="input">
               {DIFFICULTIES.map((d) => <option key={d} value={d}>{d[0].toUpperCase() + d.slice(1)}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Verification Badge</label>
+            <select value={draft.verification_badge} onChange={(e) => set('verification_badge', e.target.value as VerificationBadgeType)} className="input">
+              {BADGES.map((b) => <option key={b} value={b}>{b[0].toUpperCase() + b.slice(1)}</option>)}
             </select>
           </div>
 

@@ -1,11 +1,12 @@
-import { memo, useState, type FormEvent } from 'react'
+import { memo, useEffect, useState, type FormEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import ReportButton from './ReportButton'
-import type { Bounty } from '../types'
+import VerificationBadge from './VerificationBadge'
+import type { Bounty, BountyCompletionReportPublic } from '../types'
 import { getErrorMessage, logError } from '../lib/errors'
 
 const difficultyStyles: Record<Bounty['difficulty'], string> = {
@@ -69,11 +70,9 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
         <p className="text-sm text-white/60 leading-relaxed line-clamp-3">{bounty.description}</p>
 
         <div className="flex flex-wrap gap-2">
+          <VerificationBadge bounty={bounty} />
           <span className={`text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border ${difficultyStyles[bounty.difficulty]}`}>{bounty.difficulty}</span>
           <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/15 text-white/50">{bounty.category}</span>
-          {bounty.is_closed && (
-            <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/20 text-white/50">Closed</span>
-          )}
         </div>
 
         {bounty.skills_needed && (
@@ -95,12 +94,66 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
             </button>
           )}
         </div>
+
+        {bounty.completion_status === 'completed' && <CompletionReportSection bountyId={bounty.id} />}
       </motion.div>
 
       <AnimatePresence>{open && !unavailable && <ApplyModal bounty={bounty} onClose={() => setOpen(false)} />}</AnimatePresence>
     </>
   )
 })
+
+// Shown on a completed bounty's card only — pulls from
+// bounty_completion_reports_public (migration 0037), which excludes
+// wallet addresses, payment details, and tx hashes by construction, so
+// there's nothing private for this component to accidentally leak.
+function CompletionReportSection({ bountyId }: { bountyId: string }) {
+  const [open, setOpen] = useState(false)
+  const [report, setReport] = useState<BountyCompletionReportPublic | null | undefined>(undefined)
+
+  useEffect(() => {
+    if (!open || report !== undefined) return
+    supabase
+      .from('bounty_completion_reports_public')
+      .select('*')
+      .eq('bounty_id', bountyId)
+      .maybeSingle()
+      .then(({ data }) => setReport((data as BountyCompletionReportPublic) ?? null))
+  }, [open, report, bountyId])
+
+  return (
+    <div className="pt-3 border-t border-white/10 -mt-1">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 text-xs font-semibold text-gold hover:text-gold/80 transition-colors"
+      >
+        <ChevronDown size={13} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        View completion report
+      </button>
+      {open && (
+        report === undefined ? (
+          <div className="text-white/30 text-xs mt-2">Loading…</div>
+        ) : report === null ? (
+          <div className="text-white/30 text-xs mt-2">No public report available yet.</div>
+        ) : (
+          <div className="mt-3 flex flex-col gap-2 text-xs text-white/55 leading-relaxed">
+            {report.summary && <p>{report.summary}</p>}
+            <div className="text-white/35 font-mono">{report.submissions_count ?? 0} submission{report.submissions_count === 1 ? '' : 's'} received</div>
+            {report.winning_submission_links && (
+              <div>
+                <span className="text-white/35">Winning submissions: </span>
+                <span className="break-words">{report.winning_submission_links}</span>
+              </div>
+            )}
+            {report.unresolved_issues && (
+              <div className="text-amber-200/70 border-l-2 border-amber-300/25 pl-2">{report.unresolved_issues}</div>
+            )}
+          </div>
+        )
+      )}
+    </div>
+  )
+}
 
 function ApplyModal({ bounty, onClose }: { bounty: Bounty; onClose: () => void }) {
   const { profile, refreshProfile } = useAuth()
