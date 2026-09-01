@@ -31,6 +31,8 @@ const AdminUsers = lazy(() => import('./AdminUsers'))
 const AdminSettings = lazy(() => import('./AdminSettings'))
 const AdminEventRegistrations = lazy(() => import('./AdminEventRegistrations'))
 const AdminCheckIn = lazy(() => import('./AdminCheckIn'))
+const AdminTeam = lazy(() => import('./AdminTeam'))
+const AdminPartnerships = lazy(() => import('./AdminPartnerships'))
 
 // Safety cap on the three top-level lists this dashboard loads in full
 // (bounties/applications/submissions back every bounty-lifecycle tab
@@ -42,7 +44,7 @@ const AdminCheckIn = lazy(() => import('./AdminCheckIn'))
 // direct SQL) — flagged here rather than left as an invisible ceiling.
 const LIST_SAFETY_LIMIT = 1000
 
-type Tab = 'overview' | 'analytics' | 'bounties' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin'
+type Tab = 'overview' | 'analytics' | 'bounties' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin' | 'team' | 'partnerships'
 
 const TABS: [Tab, string, boolean][] = [
   // third element: true = staff-admin+ only (hidden from Moderators)
@@ -51,6 +53,7 @@ const TABS: [Tab, string, boolean][] = [
   ['users', 'Users', false], // visible to moderators too, but with fewer buttons — see AdminUsers
   ['reports', 'Reports', false], // Moderator "View reports" capability
   ['checkin', 'Check-In', false], // door-duty task — moderators run this at events too
+  ['partnerships', 'Partnerships', false], // BD enquiry triage — moderators handle these day-to-day too, not gated to staff-admin
   ['overview', 'Overview', true],
   ['analytics', 'Analytics', true],
   ['roles', 'Roles', true],
@@ -68,6 +71,7 @@ const TABS: [Tab, string, boolean][] = [
   ['announcements', 'Announcements', true],
   ['homepage', 'Homepage', true],
   ['settings', 'Settings', true],
+  ['team', 'Team Management', true],
 ]
 
 export default function AdminDashboard() {
@@ -85,7 +89,7 @@ export default function AdminDashboard() {
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    if (!isStaffAdmin && !['submissions', 'applications', 'users', 'reports', 'checkin'].includes(tab)) {
+    if (!isStaffAdmin && !['submissions', 'applications', 'users', 'reports', 'checkin', 'partnerships'].includes(tab)) {
       setTab('submissions')
     }
   }, [isStaffAdmin, tab])
@@ -346,6 +350,10 @@ export default function AdminDashboard() {
           <AdminReports showToast={showToast} />
         ) : tab === 'checkin' ? (
           <AdminCheckIn showToast={showToast} />
+        ) : tab === 'partnerships' ? (
+          <AdminPartnerships showToast={showToast} />
+        ) : tab === 'team' ? (
+          <AdminTeam showToast={showToast} />
         ) : tab === 'event_registrations' ? (
           <AdminEventRegistrations showToast={showToast} />
         ) : tab === 'settings' ? (

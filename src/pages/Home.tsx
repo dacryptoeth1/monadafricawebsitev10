@@ -117,6 +117,7 @@ export default function Home() {
       <FaqSection items={content.faq_items} />
       <LeaderboardPreview />
       <FeaturedContributors />
+      <TeamPartnerCta />
       <FinalCta />
     </>
   )
@@ -585,6 +586,43 @@ const FeaturedContributors = memo(function FeaturedContributors() {
     </section>
   )
 })
+
+// Subtle, compact — deliberately not another full hero section, this is
+// two small cards pointing to /team and /partner so both stay
+// discoverable from the homepage without competing with the main
+// bounty/ecosystem content above.
+function TeamPartnerCta() {
+  return (
+    <section className="py-16">
+      <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+        <Reveal>
+          <Link
+            to="/team"
+            className="group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.02] px-7 py-6 h-full hover:border-purple/40 hover:-translate-y-0.5 transition-all"
+          >
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-purple-light">Who we are</span>
+              <h3 className="font-display font-semibold text-lg mt-1.5">Meet the Team</h3>
+            </div>
+            <span className="text-purple-light group-hover:translate-x-1 transition-transform shrink-0">→</span>
+          </Link>
+        </Reveal>
+        <Reveal delay={70}>
+          <Link
+            to="/partner"
+            className="group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.02] px-7 py-6 h-full hover:border-gold/40 hover:-translate-y-0.5 transition-all"
+          >
+            <div>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-gold">Work with us</span>
+              <h3 className="font-display font-semibold text-lg mt-1.5">Partner With Monad Africa</h3>
+            </div>
+            <span className="text-gold group-hover:translate-x-1 transition-transform shrink-0">→</span>
+          </Link>
+        </Reveal>
+      </div>
+    </section>
+  )
+}
 
 function FinalCta() {
   return (

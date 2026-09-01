@@ -17,7 +17,9 @@ const NAV = [
   { to: '/beginner-hub', label: 'Beginner Hub' },
   { to: '/ecosystem', label: 'Ecosystem' },
   { to: '/community', label: 'Community' },
+  { to: '/team', label: 'Team' },
   { to: '/partners', label: 'Partners' },
+  { to: '/partner', label: 'Partner With Us' },
   { to: '/contact', label: 'Contact' },
 ]
 
@@ -130,16 +132,22 @@ function Footer() {
               <a href={defaultSiteSettings.x_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center hover:bg-white/10 transition-colors text-xs font-bold">
                 𝕏
               </a>
-              <a href="#" className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center hover:bg-white/10 transition-colors">
+              <a href={defaultSiteSettings.telegram_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border border-white/15 flex items-center justify-center hover:bg-white/10 transition-colors">
                 <Send size={14} />
               </a>
             </div>
           </div>
-          <div className="flex flex-wrap gap-16">
+          <div className="flex flex-wrap gap-x-16 gap-y-10">
             <FooterCol title="Explore" links={[
               { label: 'Bounties', href: '/bounties', internal: true },
               { label: 'Ecosystem', href: '/ecosystem', internal: true },
               { label: 'Beginner Hub', href: '/beginner-hub', internal: true },
+              { label: 'Team', href: '/team', internal: true },
+            ]} />
+            <FooterCol title="Partnerships" links={[
+              { label: 'Partner With Us', href: '/partner', internal: true },
+              { label: 'Business Development', href: '/team#business-development', internal: true },
+              { label: 'Contact Lead BD', href: 'https://t.me/CryptoTesteer' },
             ]} />
             <FooterCol title="Community" links={[
               { label: 'Discord', href: defaultSiteSettings.discord_url },

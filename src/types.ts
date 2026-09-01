@@ -279,6 +279,62 @@ export interface Partner {
   created_at: string
 }
 
+// The official, admin-curated Monad Africa team shown on the public
+// /team page — see supabase/migrations/0035. Deliberately distinct from
+// `Profile` (a normal user account): a community member cannot make
+// themselves show up here just by picking a role on their own profile.
+export interface TeamMember {
+  id: string
+  name: string
+  primary_role: string
+  badges: string[]
+  avatar_url: string | null
+  x_url: string | null
+  telegram_url: string | null
+  bio: string | null
+  is_bd_lead: boolean
+  display_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export const PARTNERSHIP_TYPES = [
+  'Ecosystem Partnership',
+  'Community Collaboration',
+  'Sponsorship',
+  'University Programme',
+  'Hackathon',
+  'Builder Programme',
+  'Event',
+  'Media Partnership',
+  'Project Collaboration',
+  'Strategic Opportunity',
+  'Other',
+] as const
+export type PartnershipType = (typeof PARTNERSHIP_TYPES)[number]
+
+export const PARTNERSHIP_STATUSES = ['New', 'Reviewing', 'Contacted', 'Accepted', 'Declined', 'Archived'] as const
+export type PartnershipStatus = (typeof PARTNERSHIP_STATUSES)[number]
+
+// The "Partner With Monad Africa" (/partner) contact form — see
+// supabase/migrations/0035. Never publicly readable; admin/BD-only.
+export interface PartnershipSubmission {
+  id: string
+  full_name: string
+  organization: string | null
+  email: string
+  x_url: string | null
+  telegram: string | null
+  website: string | null
+  partnership_type: string
+  message: string
+  status: PartnershipStatus
+  admin_notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type EventListingStatus = 'draft' | 'published' | 'cancelled'
 
 // Registration-capable view of `public.events` — the SAME table the
