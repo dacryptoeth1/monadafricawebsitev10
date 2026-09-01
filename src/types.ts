@@ -626,7 +626,7 @@ export const defaultSiteSettings: SiteSettings = {
   builders_onboarded: 30,
   community_partners: 2,
   x_url: 'https://x.com/monadonafrica',
-  discord_url: 'https://discord.gg/tjY9t3PZF',
+  discord_url: 'https://discord.gg/9Fj5KtQCS',
   telegram_url: 'https://t.me/monad_africa',
   telegram_members: 2587,
   telegram_members_change_today: 34,

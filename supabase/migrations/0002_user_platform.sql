@@ -120,7 +120,7 @@ create table if not exists public.site_settings (
   builders_onboarded int not null default 30,
   community_partners int not null default 2,
   x_url text default 'https://x.com/monadonafrica',
-  discord_url text default 'https://discord.gg/tjY9t3PZF',
+  discord_url text default 'https://discord.gg/9Fj5KtQCS',
   telegram_url text default '',
   updated_at timestamptz not null default now()
 );
