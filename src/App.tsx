@@ -20,6 +20,8 @@ const HostBounty = lazy(() => import('./pages/HostBounty'))
 const BeginnerHub = lazy(() => import('./pages/BeginnerHub'))
 const Ecosystem = lazy(() => import('./pages/Ecosystem'))
 const Partners = lazy(() => import('./pages/Partners'))
+const Team = lazy(() => import('./pages/Team'))
+const Partner = lazy(() => import('./pages/Partner'))
 const Contact = lazy(() => import('./pages/Contact'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
@@ -73,6 +75,8 @@ export default function App() {
                       <Route path="/beginner-hub" element={<BeginnerHub />} />
                       <Route path="/ecosystem" element={<Ecosystem />} />
                       <Route path="/partners" element={<Partners />} />
+                      <Route path="/team" element={<Team />} />
+                      <Route path="/partner" element={<Partner />} />
                       <Route path="/contact" element={<Contact />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/signup" element={<Signup />} />
