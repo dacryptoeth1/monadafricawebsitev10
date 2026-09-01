@@ -6,6 +6,7 @@ import { useSiteSettings } from '../hooks/useSiteSettings'
 import BountyCard from '../components/BountyCard'
 import EmptyState from '../components/EmptyState'
 import Reveal from '../components/Reveal'
+import { VerificationDisclaimer } from '../components/VerificationBadge'
 
 const CATEGORIES: (BountyCategory | 'All')[] = ['All', 'Development', 'Design', 'Marketing', 'Community', 'Content']
 
@@ -52,7 +53,8 @@ export default function Bounties() {
         <Reveal>
           <span className="font-mono text-xs uppercase tracking-wider text-purple-light">Bounty board</span>
           <h1 className="font-display font-semibold text-4xl md:text-5xl mt-4 mb-4">Find your next opportunity.</h1>
-          <p className="text-white/55 max-w-xl mb-10">Every bounty here has been reviewed and approved by the Monad Africa team.</p>
+          <p className="text-white/55 max-w-xl mb-4">Every bounty here has been reviewed and approved by the Monad Africa team.</p>
+          <VerificationDisclaimer className="max-w-xl mb-10" />
         </Reveal>
 
         <Reveal className="flex flex-col sm:flex-row sm:items-center gap-3 mb-8">

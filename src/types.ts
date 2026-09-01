@@ -2,6 +2,18 @@ export type BountyCategory = 'Development' | 'Design' | 'Marketing' | 'Community
 export type BountyDifficulty = 'easy' | 'medium' | 'hard'
 export type BountyStatus = 'pending' | 'approved' | 'rejected'
 
+// The badge shown on every public bounty card — see migration 0037.
+// 'verified' = published from an admin-reviewed bounty_hosting_requests
+// row (publish_bounty_hosting_request()); 'partner' / 'community' are
+// set by an admin for bounties created directly in the admin dashboard
+// (AdminBounties.tsx) that didn't go through that request flow.
+export type VerificationBadgeType = 'verified' | 'partner' | 'community'
+
+// The post-publish completion lifecycle — independent of is_closed
+// (open/closed for new submissions) and status/is_deleted. See
+// migration 0037.
+export type BountyCompletionStatus = 'none' | 'under_review' | 'completed' | 'cancelled' | 'expired'
+
 export interface Bounty {
   id: string
   project_name: string
@@ -26,6 +38,12 @@ export interface Bounty {
   closed_at: string | null
   closed_by: string | null
   created_at: string
+  // Added in migration 0037 — see the Partnership & Bounty workflow.
+  hosting_request_id: string | null
+  verification_badge: VerificationBadgeType
+  assigned_admin: string | null
+  published_at: string | null
+  completion_status: BountyCompletionStatus
 }
 
 export type NewBounty = Omit<Bounty, 'id' | 'status' | 'created_at'>
@@ -43,6 +61,24 @@ export function bountyLifecycleStatus(b: Pick<Bounty, 'status' | 'is_closed' | '
   if (b.is_deleted) return 'deleted'
   if (b.status !== 'approved') return 'draft'
   return b.is_closed ? 'closed' : 'active'
+}
+
+// Display-only label for the public-facing verification badge — folds
+// completion_status/is_closed in on top of verification_badge so a
+// completed/closed/expired bounty always shows that instead of its
+// underlying verified/partner/community tier. See VerificationBadge.tsx.
+export type PublicBadgeLabel = 'Verified by Monad Africa' | 'Partner Bounty' | 'Community Bounty' | 'Completed' | 'Submissions Closed' | 'Expired'
+
+export function publicBadgeLabel(b: Pick<Bounty, 'verification_badge' | 'is_closed' | 'completion_status'>): PublicBadgeLabel {
+  if (b.completion_status === 'completed') return 'Completed'
+  if (b.completion_status === 'expired') return 'Expired'
+  // 'cancelled' has no dedicated public badge in the spec — closest
+  // accurate label is the same one shown for a closed/under-review
+  // bounty, since a cancelled bounty must never look applyable either.
+  if (b.is_closed || b.completion_status === 'under_review' || b.completion_status === 'cancelled') return 'Submissions Closed'
+  if (b.verification_badge === 'verified') return 'Verified by Monad Africa'
+  if (b.verification_badge === 'partner') return 'Partner Bounty'
+  return 'Community Bounty'
 }
 
 export interface Application {
@@ -209,6 +245,12 @@ export interface Submission {
   status: 'pending' | 'approved' | 'rejected'
   is_winner: boolean
   created_at: string
+  // Added in migration 0037 — writable by the hosting project itself
+  // (RLS + protect_submission_fields() trigger restrict a non-admin
+  // updater to only these three columns), not by the applicant.
+  shortlisted: boolean
+  proposed_winner: boolean
+  project_feedback: string | null
 }
 
 export interface AppNotification {
@@ -333,6 +375,143 @@ export interface PartnershipSubmission {
   admin_notes: string | null
   created_at: string
   updated_at: string
+}
+
+// --- Partnership & Bounty hosting workflow (migration 0037) ----------
+
+export const PARTNERSHIP_APPLICATION_STATUSES = ['Pending Review', 'Contacted', 'Under Discussion', 'Approved', 'Rejected', 'Active Partnership'] as const
+export type PartnershipApplicationStatus = (typeof PARTNERSHIP_APPLICATION_STATUSES)[number]
+
+// The signed-in "Partner With Us" application — replaces the old
+// anonymous partnership_submissions table (left untouched/historical,
+// no longer written to). See supabase/migrations/0037.
+export interface PartnershipApplication {
+  id: string
+  created_by: string
+  project_name: string
+  logo_url: string | null
+  website: string | null
+  x_username: string | null
+  telegram: string | null
+  contact_email: string
+  contact_person: string
+  category: string | null
+  description: string | null
+  partnership_type: string
+  needs_from_us: string | null
+  offers_to_us: string | null
+  target_countries: string[]
+  supporting_links: string | null
+  additional_info: string | null
+  status: PartnershipApplicationStatus
+  admin_notes: string | null
+  assigned_admin: string | null
+  reviewed_at: string | null
+  approved_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const BOUNTY_HOSTING_REQUEST_STATUSES = ['draft', 'pending_review', 'changes_requested', 'approved', 'rejected'] as const
+export type BountyHostingRequestStatus = (typeof BOUNTY_HOSTING_REQUEST_STATUSES)[number]
+
+// The signed-in "Host a Bounty" application — the pre-publish review
+// lifecycle. Once approved, an admin calls publish_bounty_hosting_request()
+// which creates the actual public Bounty row (see hosting_request_id on
+// Bounty above) and stamps published_bounty_id here. See migration 0037.
+export interface BountyHostingRequest {
+  id: string
+  created_by: string
+  project_name: string | null
+  logo_url: string | null
+  website: string | null
+  x_username: string | null
+  telegram: string | null
+  contact_email: string | null
+  contact_person: string | null
+  title: string | null
+  description: string | null
+  category: BountyCategory | null
+  required_skills: string | null
+  eligibility: string | null
+  deliverables: string | null
+  num_winners: number | null
+  total_reward: string | null
+  reward_currency: string | null
+  reward_distribution: string | null
+  submission_deadline: string | null
+  winner_announcement_date: string | null
+  payment_method: string | null
+  proof_of_funds_url: string | null
+  relevant_links: string | null
+  terms: string | null
+  additional_info: string | null
+  status: BountyHostingRequestStatus
+  admin_notes: string | null
+  assigned_admin: string | null
+  reviewed_at: string | null
+  approved_at: string | null
+  published_bounty_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+// One row of the private {submission_id, wallet_or_payment_details,
+// reward_amount, tx_hash} winners array on BountyCompletionReport.
+export interface CompletionReportWinner {
+  submission_id: string
+  wallet_or_payment_details: string
+  reward_amount: string
+  tx_hash: string
+}
+
+export const COMPLETION_REPORT_STATUSES = ['draft', 'submitted', 'approved'] as const
+export type CompletionReportStatus = (typeof COMPLETION_REPORT_STATUSES)[number]
+
+// The private, full completion report a project fills in after its
+// bounty ends — only ever readable by its owner or an admin. The public
+// site instead reads BountyCompletionReportPublic below. See migration
+// 0037.
+export interface BountyCompletionReport {
+  id: string
+  bounty_id: string
+  created_by: string
+  submissions_count: number | null
+  winners: CompletionReportWinner[]
+  summary: string | null
+  winning_submission_links: string | null
+  project_feedback: string | null
+  participant_feedback: string | null
+  unresolved_issues: string | null
+  status: CompletionReportStatus
+  admin_notes: string | null
+  approved_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// public.bounty_completion_reports_public — the sanitized subset shown
+// on a completed bounty's public card. No wallet/payment/tx data.
+export interface BountyCompletionReportPublic {
+  bounty_id: string
+  submissions_count: number | null
+  summary: string | null
+  winning_submission_links: string | null
+  unresolved_issues: string | null
+  approved_at: string
+}
+
+export type StatusHistoryEntityType = 'partnership_application' | 'bounty_hosting_request' | 'bounty'
+
+export interface StatusHistoryEntry {
+  id: string
+  entity_type: StatusHistoryEntityType
+  entity_id: string
+  old_status: string | null
+  new_status: string | null
+  changed_by: string | null
+  note: string | null
+  created_at: string
 }
 
 export type EventListingStatus = 'draft' | 'published' | 'cancelled'

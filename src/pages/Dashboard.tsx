@@ -28,10 +28,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [submitFor, setSubmitFor] = useState<AppRow | null>(null)
   const [copied, setCopied] = useState(false)
+  const [partnershipBountyCount, setPartnershipBountyCount] = useState(0)
 
   async function loadAll() {
     if (!profile) return
-    const [{ data: apps }, { data: subs }, { data: notifs }, { count: betterCount }, { data: credits }] = await Promise.all([
+    const [{ data: apps }, { data: subs }, { data: notifs }, { count: betterCount }, { data: credits }, { count: pCount }, { count: rCount }] = await Promise.all([
       supabase.from('applications').select('*, bounties(title, reward, logo_url, project_name, is_closed, is_deleted)').eq('user_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('submissions').select('*, bounties(title, logo_url, project_name)').eq('user_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('notifications').select('*').or(`user_id.eq.${profile.id},user_id.is.null`).order('created_at', { ascending: false }).limit(20),
@@ -41,12 +42,17 @@ export default function Dashboard() {
       // public view existed. See migration 0032.
       supabase.from('leaderboard_public').select('id', { count: 'exact', head: true }).gt('xp', profile.xp),
       supabase.from('credit_transactions').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(15),
+      // Partnership/bounty-hosting applications — see migration 0037 and
+      // ProjectBountyDashboard.tsx (linked below).
+      supabase.from('partnership_applications').select('id', { count: 'exact', head: true }).eq('created_by', profile.id),
+      supabase.from('bounty_hosting_requests').select('id', { count: 'exact', head: true }).eq('created_by', profile.id),
     ])
     setApplications((apps as AppRow[]) ?? [])
     setSubmissions((subs as SubRow[]) ?? [])
     setNotifications((notifs as AppNotification[]) ?? [])
     setRank((betterCount ?? 0) + 1)
     setCreditHistory((credits as CreditTransaction[]) ?? [])
+    setPartnershipBountyCount((pCount ?? 0) + (rCount ?? 0))
     setLoading(false)
   }
 
@@ -147,6 +153,27 @@ export default function Dashboard() {
               <Copy size={15} />
             </button>
             {copied && <span className="text-xs text-emerald-300">Copied!</span>}
+          </div>
+        </Reveal>
+
+        <Reveal className="rounded-squircle border border-white/10 bg-panel/40 p-6 mb-12 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="font-display font-semibold mb-1">Partnerships & bounty hosting</h3>
+            <p className="text-white/40 text-xs">
+              {partnershipBountyCount > 0
+                ? 'Track your applications, or manage your bounty once it\'s live.'
+                : 'Represent a project? Apply to partner with Monad Africa or host a bounty.'}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {partnershipBountyCount > 0 ? (
+              <Link to="/my-bounty" className="px-5 py-2.5 rounded-full text-sm font-semibold bg-gradient-to-br from-purple-glow to-purple">View dashboard</Link>
+            ) : (
+              <>
+                <Link to="/partner" className="px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 hover:bg-white/10 transition-colors">Partner With Us</Link>
+                <Link to="/host-bounty" className="px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 hover:bg-white/10 transition-colors">Host a Bounty</Link>
+              </>
+            )}
           </div>
         </Reveal>
 
