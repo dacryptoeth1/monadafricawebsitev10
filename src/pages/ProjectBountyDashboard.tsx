@@ -251,6 +251,23 @@ function CompletionReportPanel({
   )
   const [saving, setSaving] = useState(false)
 
+  // Newly proposed winners (from the submission list above, which can
+  // change after this panel has already mounted) need a payment-detail
+  // row added without wiping whatever's already been typed for existing
+  // ones — the useState initializer above only ever runs once. Once a
+  // saved report exists, its own `winners` array is authoritative and
+  // this intentionally stops syncing from proposedWinners.
+  useEffect(() => {
+    if (report) return
+    setWinners((prev) => {
+      const existingIds = new Set(prev.map((w) => w.submission_id))
+      const additions = proposedWinners
+        .filter((s) => !existingIds.has(s.id))
+        .map((s) => ({ submission_id: s.id, wallet_or_payment_details: '', reward_amount: '', tx_hash: '' }))
+      return additions.length ? [...prev, ...additions] : prev
+    })
+  }, [proposedWinners, report])
+
   const locked = report?.status === 'submitted' || report?.status === 'approved'
 
   function setWinner(i: number, field: keyof CompletionReportWinner, value: string) {

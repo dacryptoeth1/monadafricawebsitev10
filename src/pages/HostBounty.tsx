@@ -10,6 +10,7 @@ import { notifyAdmin } from '../lib/notifyAdmin'
 const CATEGORIES: BountyCategory[] = ['Development', 'Design', 'Marketing', 'Community', 'Content']
 const MIN_FILL_TIME_MS = 4000
 const AUTOSAVE_DEBOUNCE_MS = 1500
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type Step = 'project' | 'bounty' | 'rewards' | 'contact' | 'review'
 const STEPS: [Step, string][] = [
@@ -141,6 +142,57 @@ export default function HostBounty() {
     setProofFile(e.target.files?.[0] ?? null)
   }
 
+  function buildDraftPayload() {
+    return {
+      project_name: draft.project_name.trim() || null,
+      website: draft.website.trim() || null,
+      x_username: draft.x_username.trim() || null,
+      title: draft.title.trim() || null,
+      description: draft.description.trim() || null,
+      category: draft.category,
+      required_skills: draft.required_skills.trim() || null,
+      eligibility: draft.eligibility.trim() || null,
+      deliverables: draft.deliverables.trim() || null,
+      num_winners: draft.num_winners ? parseInt(draft.num_winners, 10) || null : null,
+      total_reward: draft.total_reward.trim() || null,
+      reward_currency: draft.reward_currency.trim() || null,
+      reward_distribution: draft.reward_distribution.trim() || null,
+      submission_deadline: draft.submission_deadline || null,
+      winner_announcement_date: draft.winner_announcement_date || null,
+      payment_method: draft.payment_method.trim() || null,
+      telegram: draft.telegram.trim() || null,
+      contact_email: draft.contact_email.trim() || null,
+      contact_person: draft.contact_person.trim() || null,
+      relevant_links: draft.relevant_links.trim() || null,
+      terms: draft.terms.trim() || null,
+      additional_info: draft.additional_info.trim() || null,
+    }
+  }
+
+  // Immediately creates/updates the draft row and returns its id —
+  // shared by the debounced autosave below and by handleSubmit, which
+  // calls this directly rather than trusting the debounce to have
+  // already fired. Submitting within AUTOSAVE_DEBOUNCE_MS of the last
+  // keystroke used to hit "please fill in the form" on a fully valid
+  // submission, because requestId was still null at that point.
+  async function flushDraft(): Promise<string | null> {
+    if (!session) return null
+    const payload = buildDraftPayload()
+    if (requestId) {
+      const { error: updErr } = await supabase.from('bounty_hosting_requests').update(payload).eq('id', requestId)
+      if (updErr) throw updErr
+      return requestId
+    }
+    const { data, error: insErr } = await supabase
+      .from('bounty_hosting_requests')
+      .insert({ ...payload, created_by: session.user.id })
+      .select('id')
+      .single()
+    if (insErr) throw insErr
+    setRequestId(data.id)
+    return data.id
+  }
+
   // Debounced draft autosave into the DB — resumable across devices,
   // not just this browser. Only starts once the user has actually typed
   // something (avoids creating an empty row on a bare page visit).
@@ -148,43 +200,8 @@ export default function HostBounty() {
     if (!session || !startedTyping.current || existingStatus === 'pending_review') return
     setSaveState('saving')
     const t = setTimeout(async () => {
-      const payload = {
-        project_name: draft.project_name.trim() || null,
-        website: draft.website.trim() || null,
-        x_username: draft.x_username.trim() || null,
-        title: draft.title.trim() || null,
-        description: draft.description.trim() || null,
-        category: draft.category,
-        required_skills: draft.required_skills.trim() || null,
-        eligibility: draft.eligibility.trim() || null,
-        deliverables: draft.deliverables.trim() || null,
-        num_winners: draft.num_winners ? parseInt(draft.num_winners, 10) || null : null,
-        total_reward: draft.total_reward.trim() || null,
-        reward_currency: draft.reward_currency.trim() || null,
-        reward_distribution: draft.reward_distribution.trim() || null,
-        submission_deadline: draft.submission_deadline || null,
-        winner_announcement_date: draft.winner_announcement_date || null,
-        payment_method: draft.payment_method.trim() || null,
-        telegram: draft.telegram.trim() || null,
-        contact_email: draft.contact_email.trim() || null,
-        contact_person: draft.contact_person.trim() || null,
-        relevant_links: draft.relevant_links.trim() || null,
-        terms: draft.terms.trim() || null,
-        additional_info: draft.additional_info.trim() || null,
-      }
       try {
-        if (requestId) {
-          const { error: updErr } = await supabase.from('bounty_hosting_requests').update(payload).eq('id', requestId)
-          if (updErr) throw updErr
-        } else {
-          const { data, error: insErr } = await supabase
-            .from('bounty_hosting_requests')
-            .insert({ ...payload, created_by: session.user.id })
-            .select('id')
-            .single()
-          if (insErr) throw insErr
-          setRequestId(data.id)
-        }
+        await flushDraft()
         setSaveState('saved')
       } catch (err) {
         logError('[HostBounty] draft autosave failed:', err)
@@ -229,6 +246,7 @@ export default function HostBounty() {
     }
     if (s === 'contact') {
       if (!draft.contact_email.trim() || !draft.contact_person.trim()) return 'Please enter a contact email and contact person.'
+      if (!EMAIL_RE.test(draft.contact_email.trim())) return 'Please enter a valid contact email address.'
     }
     return null
   }
@@ -260,10 +278,16 @@ export default function HostBounty() {
       const err = stepError(s)
       if (err) { setError(err); setStep(s); return }
     }
-    if (!requestId) { setError('Please fill in the form before submitting.'); return }
 
     setSubmitting(true)
     try {
+      // Flush the latest form state synchronously rather than trusting
+      // the debounced autosave to have already run — submitting within
+      // AUTOSAVE_DEBOUNCE_MS of the last keystroke would otherwise reject
+      // a fully valid, fully-filled-in form.
+      const id = await flushDraft()
+      if (!id) throw new Error('Please sign in and try again.')
+
       const logo_url = await uploadIfNeeded()
       const proof_of_funds_url = await uploadProofIfNeeded()
       const { error: updErr } = await supabase
@@ -274,10 +298,10 @@ export default function HostBounty() {
           num_winners: parseInt(draft.num_winners, 10) || 1,
           status: 'pending_review',
         })
-        .eq('id', requestId)
+        .eq('id', id)
       if (updErr) throw updErr
 
-      notifyAdmin('bounty_hosting_request', requestId)
+      notifyAdmin('bounty_hosting_request', id)
       setDone(true)
     } catch (err) {
       logError('[HostBounty] bounty request submission failed:', err)

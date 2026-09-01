@@ -27,7 +27,11 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
   const { session } = useAuth()
   const navigate = useNavigate()
 
-  const unavailable = bounty.is_closed || bounty.is_deleted || bounty.status !== 'approved'
+  // completion_status !== 'none' (cancelled/under_review/completed/expired)
+  // blocks new applications independent of is_closed — an admin cancelling
+  // a still-open bounty (AdminDashboard.tsx's setCompletionStatus) doesn't
+  // separately flip is_closed, so this can't rely on that alone.
+  const unavailable = bounty.is_closed || bounty.is_deleted || bounty.status !== 'approved' || bounty.completion_status !== 'none'
 
   function handleApplyClick() {
     if (unavailable) return // belt-and-suspenders — button is already disabled below

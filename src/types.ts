@@ -72,7 +72,10 @@ export type PublicBadgeLabel = 'Verified by Monad Africa' | 'Partner Bounty' | '
 export function publicBadgeLabel(b: Pick<Bounty, 'verification_badge' | 'is_closed' | 'completion_status'>): PublicBadgeLabel {
   if (b.completion_status === 'completed') return 'Completed'
   if (b.completion_status === 'expired') return 'Expired'
-  if (b.is_closed || b.completion_status === 'under_review') return 'Submissions Closed'
+  // 'cancelled' has no dedicated public badge in the spec — closest
+  // accurate label is the same one shown for a closed/under-review
+  // bounty, since a cancelled bounty must never look applyable either.
+  if (b.is_closed || b.completion_status === 'under_review' || b.completion_status === 'cancelled') return 'Submissions Closed'
   if (b.verification_badge === 'verified') return 'Verified by Monad Africa'
   if (b.verification_badge === 'partner') return 'Partner Bounty'
   return 'Community Bounty'

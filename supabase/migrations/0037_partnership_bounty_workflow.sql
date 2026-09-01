@@ -245,11 +245,19 @@ create policy "signed-in users start a bounty hosting request"
 -- requested") right up until it's approved/rejected — but can only ever
 -- move it back into draft or pending_review themselves, never approve
 -- or reject their own request.
+-- WITH CHECK intentionally matches USING (all three open states, not just
+-- draft/pending_review): an UPDATE that never touches the status column
+-- leaves NEW.status equal to OLD.status, so a plain autosave against a
+-- 'changes_requested' row (the state it's actually in most of the time an
+-- owner is revising it) needs 'changes_requested' to stay valid post-write
+-- too — omitting it here would silently reject every such autosave.
+-- Escalating to 'approved'/'rejected' is still impossible either way, since
+-- those aren't in this list.
 drop policy if exists "owners revise their own open bounty hosting request" on public.bounty_hosting_requests;
 create policy "owners revise their own open bounty hosting request"
   on public.bounty_hosting_requests for update
   using (auth.uid() = created_by and status in ('draft','pending_review','changes_requested'))
-  with check (auth.uid() = created_by and status in ('draft','pending_review'));
+  with check (auth.uid() = created_by and status in ('draft','pending_review','changes_requested'));
 
 drop policy if exists "admins manage bounty hosting requests" on public.bounty_hosting_requests;
 create policy "admins manage bounty hosting requests"
@@ -504,12 +512,17 @@ create policy "owners and admins view completion reports"
   on public.bounty_completion_reports for select
   using (auth.uid() = created_by or public.is_admin());
 
+-- status in ('draft','submitted'), not just 'draft': ProjectBountyDashboard.tsx's
+-- "Submit report" button can INSERT directly (no row exists yet) when a
+-- project fills the form and submits without ever clicking "Save draft"
+-- first — requiring 'draft' here would reject that entirely valid first
+-- INSERT.
 drop policy if exists "project owners create own completion report" on public.bounty_completion_reports;
 create policy "project owners create own completion report"
   on public.bounty_completion_reports for insert
   with check (
     auth.uid() = created_by
-    and status = 'draft'
+    and status in ('draft','submitted')
     and exists (
       select 1 from public.bounties b
       join public.bounty_hosting_requests r on r.id = b.hosting_request_id
