@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext'
 import Layout from './components/Layout'
 import RequireAuth from './components/RequireAuth'
 import MonadMark from './components/MonadMark'
+import ScrollToTop from './components/ScrollToTop'
 
 // Route-level code splitting: keeps the initial bundle small by only
 // loading each page's JS when that route is actually visited. This
@@ -54,6 +55,7 @@ export default function App() {
     // motion.* usage across the app.
     <MotionConfig reducedMotion="user">
       <AuthProvider>
+        <ScrollToTop />
         <Suspense fallback={<PageFallback />}>
           <Routes>
             {/* /admin is intentionally outside the public Layout — no nav

@@ -31,7 +31,6 @@ export default function Team() {
   }, [location.hash, members])
 
   const bdLead = members?.find((m) => m.is_bd_lead) ?? null
-  const others = members?.filter((m) => !m.is_bd_lead) ?? []
 
   return (
     <section className="pt-36 pb-28 min-h-screen">
@@ -63,7 +62,7 @@ export default function Team() {
           </div>
         )}
 
-        <BusinessDevelopmentSection bdLead={bdLead} others={others} loading={members === null} />
+        <BusinessDevelopmentSection bdLead={bdLead} loading={members === null} />
       </div>
     </section>
   )
@@ -71,11 +70,9 @@ export default function Team() {
 
 function BusinessDevelopmentSection({
   bdLead,
-  others,
   loading,
 }: {
   bdLead: TeamMember | null
-  others: TeamMember[]
   loading: boolean
 }) {
   if (loading) return null
@@ -138,25 +135,6 @@ function BusinessDevelopmentSection({
                 )}
               </div>
             </div>
-          </div>
-        </Reveal>
-      )}
-
-      {others.length > 0 && (
-        <Reveal>
-          <p className="text-white/40 text-sm mb-4">Also on the partnerships team:</p>
-          <div className="flex flex-wrap gap-4">
-            {others.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 rounded-full border border-white/15 bg-white/[0.02] pl-2 pr-5 py-2">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden text-xs font-display font-bold shrink-0">
-                  {m.avatar_url ? <img src={m.avatar_url} alt={m.name} loading="lazy" className="w-full h-full object-cover" /> : initialsFor(m.name)}
-                </div>
-                <div>
-                  <div className="text-sm font-medium">{m.name}</div>
-                  <div className="text-white/40 text-xs">{m.primary_role}</div>
-                </div>
-              </div>
-            ))}
           </div>
         </Reveal>
       )}

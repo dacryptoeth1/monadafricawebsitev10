@@ -47,6 +47,17 @@ export default function TeamMemberCard({ member, highlight = false }: { member: 
 
       {member.bio && <p className="text-white/55 text-sm leading-relaxed flex-1 mb-5">{member.bio}</p>}
 
+      {highlight && (member.telegram_url || member.x_url) && (
+        <a
+          href={member.telegram_url || member.x_url || '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 px-5 py-3 mb-4 rounded-full text-sm font-semibold bg-gradient-to-br from-gold to-sunset-amber text-ink hover:-translate-y-0.5 transition-transform"
+        >
+          <Send size={14} /> Contact for Partnerships
+        </a>
+      )}
+
       <div className="flex gap-2 mt-auto">
         {member.x_url && (
           <a
