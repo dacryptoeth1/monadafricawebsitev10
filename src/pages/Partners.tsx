@@ -5,10 +5,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { notifyAdmin } from '../lib/notifyAdmin'
 import { getErrorMessage, logError } from '../lib/errors'
-import type { Partner, TeamMember } from '../types'
+import type { Partner } from '../types'
 import Reveal from '../components/Reveal'
 import EmptyState from '../components/EmptyState'
-import TeamMemberCard from '../components/TeamMemberCard'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_FILL_TIME_MS = 4000
@@ -22,25 +21,9 @@ const PROPOSAL_TYPES = ['Partnership', 'Collaboration', 'Sponsorship', 'Communit
 export default function Partners() {
   const location = useLocation()
   const [partners, setPartners] = useState<Partner[] | null>(null)
-  // CryptoTesteer specifically — not "whoever is flagged BD lead"
-  // anymore (migration 0048 removed that flag from him; there is no
-  // single BD point-of-contact on this page any more, the form below
-  // is). He's still a real team member and still belongs on this page,
-  // so this looks him up by his actual team_members row.
-  const [teamMember, setTeamMember] = useState<TeamMember | null | undefined>(undefined)
 
   useEffect(() => {
     supabase.from('partners').select('*').order('created_at', { ascending: false }).then(({ data }) => setPartners((data as Partner[]) ?? []))
-  }, [])
-
-  useEffect(() => {
-    supabase
-      .from('team_members')
-      .select('*')
-      .eq('name', 'CryptoTester')
-      .eq('is_active', true)
-      .maybeSingle()
-      .then(({ data }) => setTeamMember((data as TeamMember) ?? null))
   }, [])
 
   // "Partner with Us" CTAs sitewide (Home, Dashboard, Team, etc.) link
@@ -89,23 +72,11 @@ export default function Partners() {
           </div>
         )}
 
-        {/* The Monad Africa team, as it relates to partnerships: real
-            people, not a single "contact this person" gate. Currently
-            just CryptoTesteer — his card here is the same TeamMemberCard
-            used everywhere else (same click-to-view-profile behavior),
-            never highlighted/badged as a BD contact. */}
-        {teamMember && (
-          <div className="mt-24 pt-24 border-t border-white/10">
-            <Reveal className="mb-8">
-              <span className="font-mono text-xs uppercase tracking-wider text-purple-light">Team</span>
-              <h2 className="font-display font-semibold text-3xl md:text-4xl mt-4 max-w-xl">Part of the Monad Africa team.</h2>
-            </Reveal>
-            <Reveal className="max-w-sm">
-              <TeamMemberCard member={teamMember} />
-            </Reveal>
-          </div>
-        )}
-
+        {/* This page is deliberately partnerships-focused, not a place
+            to feature team members — the roster lives at /team. A prior
+            version showed a team member card here; removed per explicit
+            request so this page reads as purely "propose a
+            partnership," nothing else. */}
         <div id="partner-form" className="mt-24 pt-24 border-t border-white/10 scroll-mt-28">
           <Reveal className="mb-10">
             <span className="font-mono text-xs uppercase tracking-wider text-gold">Work with us</span>

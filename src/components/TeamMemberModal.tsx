@@ -57,7 +57,7 @@ export default function TeamMemberModal({ member, onClose }: { member: TeamMembe
         <div className="flex flex-col items-center text-center">
           <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 text-xl font-display font-bold mb-4">
             {member.avatar_url ? (
-              <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
+              <img src={member.avatar_url} alt={member.name} loading="lazy" className="w-full h-full object-cover" />
             ) : (
               initialsFor(member.name)
             )}

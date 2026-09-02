@@ -123,10 +123,24 @@ export default function AfricaNetworkMap({
                 }
               : {})}
           >
-            <circle r={r + 5.5} fill="none" stroke="#A99AFF" strokeWidth="1" opacity="0.5">
-              {animate && <animate attributeName="r" values={`${r + 1.5};${r + 15}`} dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />}
-              {animate && <animate attributeName="opacity" values="0.6;0" dur="2.6s" begin={`${i * 0.3}s`} repeatCount="indefinite" />}
-            </circle>
+            {/* CSS transform/opacity animation instead of SMIL <animate>
+                on `r` — a per-frame SVG geometry attribute change forces
+                layout+paint every frame; scaling via CSS transform is
+                compositor-only (GPU), the standard cheap way to do a
+                "pulse ring" and meaningfully lighter on mobile when
+                several nodes are animating at once. Same stagger (i*0.3s),
+                same mount/unmount gating (IntersectionObserver + reduced-
+                motion, both already handled by `animate` above) — this
+                only changes *how* the animation runs, not when. */}
+            <circle
+              r={r + 1.5}
+              fill="none"
+              stroke="#A99AFF"
+              strokeWidth="1"
+              opacity="0.5"
+              className={animate ? 'origin-center animate-network-pulse motion-reduce:animate-none' : undefined}
+              style={animate ? { transformBox: 'fill-box', animationDelay: `${i * 0.3}s` } : undefined}
+            />
             <circle r={r} fill={i % 2 === 0 ? '#E8B75D' : '#A99AFF'} className={interactive ? 'transition-[r] duration-200' : undefined} />
             {interactive && active === i && (
               <circle r={r + 3} fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.9" />

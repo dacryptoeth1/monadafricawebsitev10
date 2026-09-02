@@ -9,6 +9,16 @@
     <meta property="og:description" content="Building the Future of Monad in Africa." />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Every page fires its first Supabase request within milliseconds
+         of load; without this the DNS lookup + TLS handshake to
+         Supabase only starts once the JS bundle has parsed and actually
+         calls fetch(), instead of running in parallel with that parse —
+         a real, measurable win especially on higher-latency mobile
+         networks. Not a secret (VITE_SUPABASE_URL is already public,
+         shipped in every built JS bundle) — must match that value if
+         the Supabase project ever changes. -->
+    <link rel="preconnect" href="https://bquglkqjbznoqacgojlm.supabase.co">
+    <link rel="dns-prefetch" href="https://bquglkqjbznoqacgojlm.supabase.co">
     <!-- Only the weights actually used anywhere in the app (verified via
          grep for font-{weight} Tailwind classes) are requested — Inter's
          800/extrabold weight isn't referenced anywhere, so it was a

@@ -300,15 +300,16 @@ const Hero = memo(function Hero({
                 straight to their dashboard instead of being asked to
                 sign up again. */}
             <Reveal delay={350}>
-              {/* Secondary-tier CTA, deliberately not a third filled
-                  button — a ghost pill (border + transparent fill until
-                  hover) sits a clear step below the two solid buttons
-                  above while still reading as a real, clickable target
-                  instead of the easy-to-miss plain text link this used
-                  to be. */}
+              {/* Secondary-tier CTA — still deliberately not a third
+                  solid gradient button (that would compete with the two
+                  primary buttons above), but sized and weighted close to
+                  them now: a tinted-from-the-start pill (not just on
+                  hover) with a real border, comfortably tap-sized on
+                  mobile. Previous plain-text and light-ghost-pill
+                  versions both read as too minor per feedback. */}
               <Link
                 to={session ? '/dashboard' : '/signup'}
-                className="group inline-flex items-center gap-2 text-base font-semibold text-white/70 hover:text-white px-5 py-2.5 rounded-full border border-white/15 hover:border-purple/40 hover:bg-white/5 transition-all mb-10"
+                className="group inline-flex items-center gap-2.5 text-lg font-semibold text-white hover:text-white px-7 py-3.5 rounded-full border border-purple-light/40 bg-purple/10 hover:bg-purple/20 hover:border-purple-light/70 hover:-translate-y-0.5 transition-all mb-10"
               >
                 {session ? 'Go to Dashboard' : 'Get Started'}
                 <span className="transition-transform group-hover:translate-x-1">→</span>

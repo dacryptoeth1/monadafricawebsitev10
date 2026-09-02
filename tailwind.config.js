@@ -42,9 +42,19 @@ export default {
           '0%, 100%': { opacity: '1', boxShadow: '0 0 10px #8C79FF' },
           '50%': { opacity: '0.55', boxShadow: '0 0 4px #8C79FF' },
         },
+        // AfricaNetworkMap's per-node pulsing ring — transform+opacity
+        // only (compositor-friendly), replacing a per-frame SVG `r`
+        // attribute animation. transform-box:fill-box (set inline at
+        // the call site) makes `scale` originate from the circle's own
+        // center rather than the SVG viewport's corner.
+        'network-pulse': {
+          '0%': { transform: 'scale(1)', opacity: '0.6' },
+          '100%': { transform: 'scale(2.6)', opacity: '0' },
+        },
       },
       animation: {
         'monad-pulse': 'monad-pulse 2.4s ease-in-out infinite',
+        'network-pulse': 'network-pulse 2.6s ease-out infinite',
       },
     },
   },

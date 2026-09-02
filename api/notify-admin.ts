@@ -24,7 +24,12 @@
 //   RESEND_FROM_EMAIL
 //   ADMIN_NOTIFY_EMAIL        where these land — set to africamonad@gmail.com
 // Optional:
-//   SITE_URL                 defaults to the production site origin below
+//   SITE_URL                 defaults to the production custom domain below
+//                             (not set in Vercel as of this fix — the old
+//                             fallback pointed at the raw *.vercel.app
+//                             deployment URL instead of the custom domain,
+//                             which is why "Review in Admin Dashboard →"
+//                             was landing on the wrong host)
 //
 // Deliberately talks to Supabase's Auth/PostgREST HTTP APIs directly via
 // fetch() instead of the @supabase/supabase-js client: confirmed while
@@ -86,7 +91,7 @@ interface VercelRes {
   json(body: unknown): void
 }
 
-const SITE_URL = process.env.SITE_URL || 'https://monadafricawebsitev10.vercel.app'
+const SITE_URL = process.env.SITE_URL || 'https://www.monadafrica.com'
 
 export default async function handler(req: VercelReq, res: VercelRes) {
   if (req.method !== 'POST') {
