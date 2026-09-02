@@ -58,16 +58,17 @@ export default function CommunityStats({ settings, compact = false }: { settings
             <Counter value={p.stat.count} />
           </div>
           <div className={`text-white/40 ${compact ? 'text-[11px]' : 'text-xs'} mt-0.5`}>{p.unit}</div>
-          {!compact && (
-            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/10">
-              <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${p.stat.isLive ? 'text-emerald-300 border-emerald-300/30' : 'text-white/40 border-white/20'}`}>
-                {p.stat.isLive ? freshnessFromTimestamp(p.stat.recordedAt) : 'Manual'}
-              </span>
-              {p.stat.deltaToday !== null && p.stat.deltaToday !== 0 && (
-                <span className="text-emerald-300 text-xs font-mono">{p.stat.deltaToday > 0 ? '+' : ''}{p.stat.deltaToday} today</span>
-              )}
-            </div>
-          )}
+          {/* Freshness/"last updated" shown in both modes (previously
+              compact mode hid this entirely) — a stale-data indicator is
+              part of the honesty contract here, not just a detail view. */}
+          <div className={`flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-white/10 ${compact ? 'gap-2' : 'gap-3'}`}>
+            <span className={`font-mono uppercase px-2 py-0.5 rounded-full border ${compact ? 'text-[9px]' : 'text-[10px]'} ${p.stat.isLive ? 'text-emerald-300 border-emerald-300/30' : 'text-white/40 border-white/20'}`}>
+              {p.stat.isLive ? freshnessFromTimestamp(p.stat.recordedAt) : 'Manual'}
+            </span>
+            {!compact && p.stat.deltaToday !== null && p.stat.deltaToday !== 0 && (
+              <span className="text-emerald-300 text-xs font-mono">{p.stat.deltaToday > 0 ? '+' : ''}{p.stat.deltaToday} today</span>
+            )}
+          </div>
         </div>
       ))}
     </div>
