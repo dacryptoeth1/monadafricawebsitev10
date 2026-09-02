@@ -24,7 +24,6 @@ const BeginnerHub = lazy(() => import('./pages/BeginnerHub'))
 const Ecosystem = lazy(() => import('./pages/Ecosystem'))
 const Partners = lazy(() => import('./pages/Partners'))
 const Team = lazy(() => import('./pages/Team'))
-const Partner = lazy(() => import('./pages/Partner'))
 const Contact = lazy(() => import('./pages/Contact'))
 const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
@@ -98,14 +97,13 @@ export default function App() {
                       <Route path="/ecosystem" element={<Ecosystem />} />
                       <Route path="/partners" element={<Partners />} />
                       <Route path="/team" element={<Team />} />
-                      <Route
-                        path="/partner"
-                        element={
-                          <RequireAuth>
-                            <Partner />
-                          </RequireAuth>
-                        }
-                      />
+                      {/* /partner used to be a separate, signed-in, 3-step
+                          application wizard with its own "Contact Lead BD" /
+                          "Meet the BD Team" step before the form — retired
+                          in favor of the single direct proposal form on
+                          /partners itself (no intermediate page). Redirected,
+                          not just removed, so no old link 404s. */}
+                      <Route path="/partner" element={<Navigate to="/partners#partner-form" replace />} />
                       <Route
                         path="/my-bounty"
                         element={

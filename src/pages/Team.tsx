@@ -75,7 +75,12 @@ function BusinessDevelopmentSection({
   bdLead: TeamMember | null
   loading: boolean
 }) {
-  if (loading) return null
+  // No clutter from an empty section: with no team_members row flagged
+  // is_bd_lead (migration 0048 removed that flag from CryptoTesteer,
+  // and partnership proposals now go through the Partners page's own
+  // form instead of a single point-of-contact), there's nothing real to
+  // show here — so the whole section, heading included, doesn't render.
+  if (loading || !bdLead) return null
 
   return (
     <div id="business-development" className="scroll-mt-28">
@@ -141,7 +146,7 @@ function BusinessDevelopmentSection({
 
       <Reveal className="mt-10">
         <Link
-          to="/partner"
+          to="/partners#partner-form"
           className="inline-flex items-center gap-2 text-sm font-semibold text-purple-light hover:text-white transition-colors"
         >
           Have a partnership proposal? Submit it here →

@@ -12,6 +12,10 @@ interface Draft {
   badges: string // comma-separated in the form, split into text[] on save
   x_url: string
   telegram_url: string
+  linkedin_url: string
+  github_url: string
+  discord_url: string
+  website_url: string
   bio: string
   is_bd_lead: boolean
   is_active: boolean
@@ -23,6 +27,10 @@ const EMPTY_DRAFT: Draft = {
   badges: '',
   x_url: '',
   telegram_url: '',
+  linkedin_url: '',
+  github_url: '',
+  discord_url: '',
+  website_url: '',
   bio: '',
   is_bd_lead: false,
   is_active: true,
@@ -61,6 +69,10 @@ export default function AdminTeam({ showToast }: { showToast: (msg: string) => v
       badges: m.badges.join(', '),
       x_url: m.x_url || '',
       telegram_url: m.telegram_url || '',
+      linkedin_url: m.linkedin_url || '',
+      github_url: m.github_url || '',
+      discord_url: m.discord_url || '',
+      website_url: m.website_url || '',
       bio: m.bio || '',
       is_bd_lead: m.is_bd_lead,
       is_active: m.is_active,
@@ -108,6 +120,10 @@ export default function AdminTeam({ showToast }: { showToast: (msg: string) => v
         avatar_url,
         x_url: draft.x_url.trim() || null,
         telegram_url: draft.telegram_url.trim() || null,
+        linkedin_url: draft.linkedin_url.trim() || null,
+        github_url: draft.github_url.trim() || null,
+        discord_url: draft.discord_url.trim() || null,
+        website_url: draft.website_url.trim() || null,
         bio: draft.bio.trim() || null,
         is_bd_lead: draft.is_bd_lead,
         is_active: draft.is_active,
@@ -199,6 +215,10 @@ export default function AdminTeam({ showToast }: { showToast: (msg: string) => v
         <Field label="Additional Roles / Badges (comma-separated)" value={draft.badges} onChange={(v) => setDraft({ ...draft, badges: v })} placeholder="e.g. Partnerships, Community" className="sm:col-span-2" />
         <Field label="X / Twitter URL" value={draft.x_url} onChange={(v) => setDraft({ ...draft, x_url: v })} placeholder="https://x.com/username" />
         <Field label="Telegram URL" value={draft.telegram_url} onChange={(v) => setDraft({ ...draft, telegram_url: v })} placeholder="https://t.me/username" />
+        <Field label="LinkedIn URL" value={draft.linkedin_url} onChange={(v) => setDraft({ ...draft, linkedin_url: v })} placeholder="https://linkedin.com/in/username" />
+        <Field label="GitHub URL" value={draft.github_url} onChange={(v) => setDraft({ ...draft, github_url: v })} placeholder="https://github.com/username" />
+        <Field label="Discord URL" value={draft.discord_url} onChange={(v) => setDraft({ ...draft, discord_url: v })} placeholder="https://discord.com/users/… or a server invite" />
+        <Field label="Website URL" value={draft.website_url} onChange={(v) => setDraft({ ...draft, website_url: v })} placeholder="https://…" />
 
         <div className="sm:col-span-2">
           <label className="font-mono text-[10px] uppercase tracking-wider text-white/40 block mb-1.5">Short Professional Description</label>

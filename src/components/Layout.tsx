@@ -179,7 +179,7 @@ function Footer() {
             ]} />
             <FooterCol title="Partners" links={[
               { label: 'Partners', href: '/partners', internal: true },
-              { label: 'Partner With Us', href: '/partner', internal: true },
+              { label: 'Partner With Us', href: '/partners#partner-form', internal: true },
               { label: 'Contact BD', href: 'https://t.me/CryptoTesteer' },
             ]} />
           </div>

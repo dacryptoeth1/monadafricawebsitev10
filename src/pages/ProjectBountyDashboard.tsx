@@ -98,7 +98,7 @@ export default function ProjectBountyDashboard() {
           <Reveal className="rounded-squircle border border-white/10 bg-panel/60 p-12 text-center mb-10">
             <p className="text-white/50 mb-4">You haven't submitted a partnership or bounty application yet.</p>
             <div className="flex justify-center gap-3">
-              <Link to="/partner" className="px-5 py-2.5 rounded-full text-sm font-semibold bg-gradient-to-br from-purple-glow to-purple">Partner With Us</Link>
+              <Link to="/partners#partner-form" className="px-5 py-2.5 rounded-full text-sm font-semibold bg-gradient-to-br from-purple-glow to-purple">Partner With Us</Link>
               <Link to="/host-bounty" className="px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 hover:bg-white/5">Host a Bounty</Link>
             </div>
           </Reveal>

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { runAdminAction } from '../../lib/adminActions'
-import { freshnessLabel } from '../../lib/ecosystemActivity'
-import type { EcosystemActivity, EcosystemActivityFreshness, EcosystemActivityRegion, EcosystemActivityStatus } from '../../types'
+import { freshnessLabel, PULSE_CATEGORY_LABELS } from '../../lib/ecosystemActivity'
+import type { EcosystemActivity, EcosystemActivityFreshness, EcosystemActivityRegion, EcosystemActivityStatus, EcosystemPulseCategory, EcosystemSource } from '../../types'
 
 const EMPTY_FORM: Record<string, string> = {
-  title: '', description: '', category: '', status: 'recent', region: 'global',
+  title: '', description: '', category: '', status: 'recent', region: 'global', pulse_category: '',
   location: '', country: '', city: '', latitude: '', longitude: '',
-  source_url: '', source_name: '', image_url: '',
+  source_id: '', source_url: '', source_name: '', image_url: '',
   statistic_value: '', statistic_label: '', data_freshness: 'curated',
   is_published: 'true',
 }
@@ -20,6 +20,7 @@ const EMPTY_FORM: Record<string, string> = {
 // meant to be hand-curated — every entry should carry a real source_url.
 export default function AdminEcosystemActivity({ showToast }: { showToast: (msg: string) => void }) {
   const [items, setItems] = useState<EcosystemActivity[]>([])
+  const [sources, setSources] = useState<EcosystemSource[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -38,6 +39,10 @@ export default function AdminEcosystemActivity({ showToast }: { showToast: (msg:
 
   useEffect(() => {
     load()
+    // The registered source dropdown below — migration 0044/0045.
+    // Free-text source_url/source_name stay available for anything not
+    // (yet) registered here, so this list is a convenience, not a gate.
+    supabase.from('ecosystem_sources').select('*').eq('is_active', true).order('name').then(({ data }) => setSources((data as EcosystemSource[]) ?? []))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -54,11 +59,13 @@ export default function AdminEcosystemActivity({ showToast }: { showToast: (msg:
       category: item.category ?? '',
       status: item.status,
       region: item.region,
+      pulse_category: item.pulse_category ?? '',
       location: item.location ?? '',
       country: item.country ?? '',
       city: item.city ?? '',
       latitude: item.latitude !== null ? String(item.latitude) : '',
       longitude: item.longitude !== null ? String(item.longitude) : '',
+      source_id: item.source_id ?? '',
       source_url: item.source_url ?? '',
       source_name: item.source_name ?? '',
       image_url: item.image_url ?? '',
@@ -86,11 +93,13 @@ export default function AdminEcosystemActivity({ showToast }: { showToast: (msg:
       category: form.category.trim() || null,
       status: form.status as EcosystemActivityStatus,
       region: form.region as EcosystemActivityRegion,
+      pulse_category: (form.pulse_category.trim() || null) as EcosystemPulseCategory | null,
       location: form.location.trim() || null,
       country: form.country.trim() || null,
       city: form.city.trim() || null,
       latitude: lat,
       longitude: lng,
+      source_id: form.source_id.trim() || null,
       source_url: form.source_url.trim() || null,
       source_name: form.source_name.trim() || null,
       image_url: form.image_url.trim() || null,
@@ -147,7 +156,7 @@ export default function AdminEcosystemActivity({ showToast }: { showToast: (msg:
         </button>
       </div>
 
-      {showForm && <ActivityForm form={form} setForm={setForm} onSave={handleSave} onCancel={() => setShowForm(false)} saving={saving} editing={!!editingId} />}
+      {showForm && <ActivityForm form={form} setForm={setForm} onSave={handleSave} onCancel={() => setShowForm(false)} saving={saving} editing={!!editingId} sources={sources} />}
 
       {loading ? (
         <div className="text-white/40 text-sm py-10 text-center">Loading…</div>
@@ -164,6 +173,7 @@ export default function AdminEcosystemActivity({ showToast }: { showToast: (msg:
                   {item.title}
                   <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-white/15 text-white/50">{item.status}</span>
                   <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-white/15 text-white/50">{item.region}</span>
+                  {item.pulse_category && <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-purple/30 text-purple-light">{PULSE_CATEGORY_LABELS[item.pulse_category]}</span>}
                   <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${item.is_published ? 'text-emerald-300 border-emerald-300/30' : 'text-white/40 border-white/20'}`}>
                     {item.is_published ? 'published' : 'unpublished'}
                   </span>
@@ -186,7 +196,7 @@ export default function AdminEcosystemActivity({ showToast }: { showToast: (msg:
 }
 
 function ActivityForm({
-  form, setForm, onSave, onCancel, saving, editing,
+  form, setForm, onSave, onCancel, saving, editing, sources,
 }: {
   form: Record<string, string>
   setForm: (f: Record<string, string>) => void
@@ -194,6 +204,7 @@ function ActivityForm({
   onCancel: () => void
   saving: boolean
   editing: boolean
+  sources: EcosystemSource[]
 }) {
   function set(name: string, value: string) {
     setForm({ ...form, [name]: value })
@@ -217,6 +228,24 @@ function ActivityForm({
           <select value={form.region} onChange={(e) => set('region', e.target.value)} className="input w-full text-sm">
             <option value="global" className="bg-panel">Global (wider Monad ecosystem)</option>
             <option value="africa" className="bg-panel">Africa</option>
+          </select>
+        </div>
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-wider text-white/40 block mb-1.5">Pulse category</label>
+          <select value={form.pulse_category} onChange={(e) => set('pulse_category', e.target.value)} className="input w-full text-sm">
+            <option value="" className="bg-panel">— None —</option>
+            {Object.entries(PULSE_CATEGORY_LABELS).map(([key, label]) => (
+              <option key={key} value={key} className="bg-panel">{label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="font-mono text-[10px] uppercase tracking-wider text-white/40 block mb-1.5">Registered source</label>
+          <select value={form.source_id} onChange={(e) => set('source_id', e.target.value)} className="input w-full text-sm">
+            <option value="" className="bg-panel">— Not registered (use free-text source below) —</option>
+            {sources.map((s) => (
+              <option key={s.id} value={s.id} className="bg-panel">{s.name}{s.handle ? ` (${s.handle})` : ''}</option>
+            ))}
           </select>
         </div>
         <LabeledInput label="Location (display text)" value={form.location} onChange={(v) => set('location', v)} placeholder="e.g. Lagos, Nigeria" />

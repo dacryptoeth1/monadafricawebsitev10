@@ -95,6 +95,7 @@ export default function HostBounty() {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
+  const [emailFailed, setEmailFailed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const mountedAt = useRef(Date.now())
   const startedTyping = useRef(false)
@@ -301,7 +302,11 @@ export default function HostBounty() {
         .eq('id', id)
       if (updErr) throw updErr
 
-      notifyAdmin('bounty_hosting_request', id)
+      // The request row above is already saved — an email failure here
+      // never removes or hides it, it only affects whether the success
+      // view below shows the honest "email didn't go out" note.
+      const emailed = await notifyAdmin('bounty_hosting_request', id)
+      setEmailFailed(!emailed)
       setDone(true)
     } catch (err) {
       logError('[HostBounty] bounty request submission failed:', err)
@@ -336,6 +341,12 @@ export default function HostBounty() {
                 We'll review it shortly and reach out at the contact email you provided. Once approved,
                 we'll publish it to the public bounty board with a verification badge.
               </p>
+              {done && emailFailed && (
+                <p className="text-amber-300/70 text-xs max-w-md mx-auto leading-relaxed mt-4">
+                  Your request is safely saved. Our email notification didn't go through just now, so a
+                  response may take a little longer than usual — no action needed on your end.
+                </p>
+              )}
             </div>
           </Reveal>
         ) : (

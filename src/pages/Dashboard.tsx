@@ -170,7 +170,7 @@ export default function Dashboard() {
               <Link to="/my-bounty" className="px-5 py-2.5 rounded-full text-sm font-semibold bg-gradient-to-br from-purple-glow to-purple">View dashboard</Link>
             ) : (
               <>
-                <Link to="/partner" className="px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 hover:bg-white/10 transition-colors">Partner With Us</Link>
+                <Link to="/partners#partner-form" className="px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 hover:bg-white/10 transition-colors">Partner With Us</Link>
                 <Link to="/host-bounty" className="px-5 py-2.5 rounded-full text-sm font-semibold border border-white/15 hover:bg-white/10 transition-colors">Host a Bounty</Link>
               </>
             )}

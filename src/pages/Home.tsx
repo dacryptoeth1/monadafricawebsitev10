@@ -1,32 +1,30 @@
 import { memo, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CalendarDays, MapPin, MessageCircle, Send, Target } from 'lucide-react'
+import { Boxes, CalendarDays, Globe2, Megaphone, MessageCircle, Radio, Send, Sparkles, Target, Trophy, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import type { Bounty, EcosystemActivity, EcosystemProject, EventListing, Partner, SiteContent, SiteSettings, TeamMember } from '../types'
+import type { Bounty, EcosystemActivity, EcosystemProject, EventListing, PublicProfile, SiteContent, SiteSettings, TeamMember } from '../types'
 import { useSiteSettings } from '../hooks/useSiteSettings'
 import { formatEventDate } from '../lib/eventStatus'
 import { freshnessLabel } from '../lib/ecosystemActivity'
+import { flagFor } from '../lib/countryFlag'
+import { positionFor } from '../lib/africaGeo'
 import Reveal from '../components/Reveal'
 import Counter from '../components/Counter'
-import AfricaNetworkMap from '../components/AfricaNetworkMap'
+import AfricaNetworkMap, { type MapNode } from '../components/AfricaNetworkMap'
 import { KentePattern } from '../components/PatternBackground'
-import BountyCard from '../components/BountyCard'
-import TeamMemberCard from '../components/TeamMemberCard'
-import EmptyState from '../components/EmptyState'
+import { TeamMemberRow } from '../components/TeamMemberCard'
 import MonadMark from '../components/MonadMark'
 import CommunityStats from '../components/CommunityStats'
-import { OrganiserLogo } from '../components/EventCard'
 
-// The homepage's entire flow mirrors the site's five-pillar information
-// architecture (nav: Explore / Team / Opportunities / Community /
-// Partners — see Layout.tsx): Hero -> Explore -> Team -> Opportunities
-// -> Community -> final CTA. Each preview section here is intentionally
-// small and links out to its own dedicated page (/explore, /team,
-// /bounties, /community) for the full experience, rather than trying
-// to fit everything on one crowded page. Team shows the curated
-// official Monad Africa roster (team_members) — not the wider
-// community leaderboard directory, which still lives at /builders.
+// Redesigned around a reference layout the user supplied
+// (references/interface.jpeg): dense, card-based, Africa-map-centric —
+// Hero -> Live Ecosystem -> 3-column Discovery (Opportunities / Team /
+// Projects) -> Explore Africa -> Community -> final CTA. Every section
+// still reads from the exact same tables/queries the rest of the site
+// already uses (bounties, ecosystem_activity, team_members, projects,
+// leaderboard_public, community_stats, events) — this is a
+// re-composition of real data, not a new backend.
 const defaultSiteContent: SiteContent = {
   hero_title: 'Africa is building on Monad.',
   hero_subtitle: 'Discover the people, projects and opportunities shaping the Monad ecosystem across Africa.',
@@ -47,10 +45,11 @@ export default function Home() {
   const [liveBountyCount, setLiveBountyCount] = useState(0)
   const [projectCount, setProjectCount] = useState(0)
   const [ecosystemProjects, setEcosystemProjects] = useState<EcosystemProject[] | null>(null)
-  const [partners, setPartners] = useState<Partner[] | null>(null)
   const [events, setEvents] = useState<EventListing[] | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[] | null>(null)
   const [activity, setActivity] = useState<EcosystemActivity[] | null>(null)
+  const [countries, setCountries] = useState<{ name: string; count: number }[] | null>(null)
+  const [topContributors, setTopContributors] = useState<PublicProfile[] | null>(null)
 
   useEffect(() => {
     // Featured first, then newest — the homepage only ever shows 4, so
@@ -104,26 +103,55 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    supabase.from('projects').select('*').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).then(({ data }) => setEcosystemProjects((data as EcosystemProject[]) ?? []))
+    supabase.from('projects').select('*').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(4).then(({ data }) => setEcosystemProjects((data as EcosystemProject[]) ?? []))
     supabase.from('projects').select('id', { count: 'exact', head: true }).then(({ count }) => setProjectCount(count ?? 0))
-    supabase.from('partners').select('*').order('created_at', { ascending: false }).then(({ data }) => setPartners((data as Partner[]) ?? []))
+    // Exactly the official, curated Monad Africa roster — currently 3
+    // active members. Same table/query /team itself uses.
     supabase
       .from('team_members')
       .select('*')
       .eq('is_active', true)
       .order('display_order', { ascending: true })
-      .limit(4)
+      .limit(3)
       .then(({ data }) => setTeamMembers((data as TeamMember[]) ?? []))
+  }, [])
+
+  useEffect(() => {
+    // Real per-country builder counts (leaderboard_public.country) —
+    // same source/query /explore's Africa map already uses. Powers both
+    // the hero map and the "Explore Africa" section's map + country
+    // list below; never a fake/random node.
+    supabase
+      .from('leaderboard_public')
+      .select('country')
+      .not('country', 'is', null)
+      .limit(300)
+      .then(({ data }) => {
+        const counts = new Map<string, number>()
+        for (const row of (data as { country: string | null }[]) ?? []) {
+          if (!row.country) continue
+          counts.set(row.country, (counts.get(row.country) ?? 0) + 1)
+        }
+        setCountries(Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 12))
+      })
+
+    // Real XP ranking, same leaderboard_public view /leaderboard reads —
+    // "Top Contributors" is never invented placeholder names.
+    supabase
+      .from('leaderboard_public')
+      .select('*')
+      .order('xp', { ascending: false })
+      .limit(3)
+      .then(({ data }) => setTopContributors((data as PublicProfile[]) ?? []))
   }, [])
 
   return (
     <>
       <Hero content={content} settings={settings} liveBountyCount={liveBountyCount} projectCount={projectCount} />
-      <ExplorePreview projects={ecosystemProjects} partners={partners} />
-      <TeamPreview members={teamMembers} />
-      <EcosystemActivityPreview activity={activity} />
-      <OpportunitiesPreview bounties={bounties} settings={settings} />
-      <CommunityPreview events={events} settings={settings} />
+      <LiveEcosystemSection activity={activity} />
+      <DiscoveryGrid bounties={bounties} teamMembers={teamMembers} projects={ecosystemProjects} />
+      <ExploreAfricaSection countries={countries} />
+      <CommunitySection events={events} settings={settings} topContributors={topContributors} />
       <FinalCta settings={settings} />
     </>
   )
@@ -145,7 +173,9 @@ function renderHeroTitle(title: string) {
 // Small reusable "kicker + title (+ optional subtitle) + optional
 // right-aligned link" header used to open every section below — kept
 // consistent so the page reads as one coherent editorial layout rather
-// than a set of differently-styled blocks stitched together.
+// than a set of differently-styled blocks stitched together. Sized for
+// a denser page than before (text-3xl not text-5xl, tighter mb) — see
+// the reference's own much smaller section headers.
 function SectionIntro({
   kicker,
   title,
@@ -158,11 +188,11 @@ function SectionIntro({
   cta?: { label: string; to: string }
 }) {
   return (
-    <Reveal className="flex flex-wrap items-end justify-between gap-6 mb-12">
+    <Reveal className="flex flex-wrap items-end justify-between gap-6 mb-8">
       <div className="max-w-2xl">
         <span className="font-mono text-xs uppercase tracking-wider text-purple-light">{kicker}</span>
-        <h2 className="font-display font-semibold text-4xl md:text-5xl mt-4">{title}</h2>
-        {subtitle && <p className="text-white/55 leading-relaxed mt-4 max-w-xl">{subtitle}</p>}
+        <h2 className="font-display font-semibold text-3xl md:text-4xl mt-3">{title}</h2>
+        {subtitle && <p className="text-white/55 leading-relaxed mt-3 max-w-xl text-sm">{subtitle}</p>}
       </div>
       {cta && (
         <Link to={cta.to} className="text-sm font-semibold text-purple-light hover:text-white transition-colors shrink-0">
@@ -175,8 +205,7 @@ function SectionIntro({
 
 // Wrapped in memo: content/settings/liveBountyCount/projectCount are
 // each their own stable state slot in Home() — this section shouldn't
-// re-render just because an unrelated sibling's data (events, builders,
-// ...) arrived.
+// re-render just because an unrelated sibling's data arrived.
 const Hero = memo(function Hero({
   content,
   settings,
@@ -198,104 +227,135 @@ const Hero = memo(function Hero({
   const secondaryExternal = secondaryHref.startsWith('http')
 
   const stats = [
-    { label: 'Builders', value: settings.builders_onboarded },
-    { label: 'Projects', value: projectCount },
-    { label: 'Opportunities', value: liveBountyCount },
-    { label: 'Countries', value: settings.countries_reached },
+    { label: 'Builders', value: settings.builders_onboarded, Icon: Users },
+    { label: 'Projects', value: projectCount, Icon: Boxes },
+    { label: 'Opportunities', value: liveBountyCount, Icon: Target },
+    { label: 'Countries', value: settings.countries_reached, Icon: Globe2 },
   ]
 
+  // Root cause of the desktop "hero floats too low" gap: min-h-[92vh] +
+  // items-center vertically centers the content inside a near-full-
+  // viewport box instead of letting it sit right under the fixed nav.
+  // Mobile keeps that exact original behavior (unchanged); md+ drops
+  // the forced min-height and top-alignment instead, so the section
+  // just hugs its content — same pt-32 gap under the navbar as before,
+  // no vertical-centering slack below it.
   return (
-    <section className="relative min-h-[92vh] flex items-center pt-32 pb-20 overflow-hidden">
+    <section className="relative min-h-[92vh] md:min-h-0 flex items-center md:items-start pt-32 pb-16 overflow-hidden">
       <div className="absolute inset-0 -z-20 bg-gradient-to-br from-ink via-ink to-[#140a1e]" />
       <div className="absolute -z-10 w-[600px] h-[600px] rounded-full bg-purple-glow blur-[120px] opacity-40 top-[-200px] right-[-160px]" />
       <div className="absolute -z-10 w-[500px] h-[500px] rounded-full bg-sunset-coral blur-[130px] opacity-[0.18] bottom-[-200px] left-[-140px]" />
       <KentePattern className="absolute inset-0 -z-10 text-white opacity-[0.03]" />
 
-      {/* The real Monad Africa "Africa network map" reference asset —
-          not a redrawn illustration. hue-rotate nudges its warm
-          amber/gold linework toward Monad purple while keeping the real
-          artwork recognizable; a radial mask fades its rectangular
-          edges into the background. Eager-loaded (above the fold) but
-          small (~50KB) and non-blocking. */}
-      <div
-        className="absolute -z-10 right-[-6%] top-1/2 -translate-y-1/2 w-[620px] max-w-[85vw] opacity-40 pointer-events-none select-none"
-        style={{ filter: 'hue-rotate(200deg) saturate(1.3) brightness(0.95)' }}
-      >
-        <img
-          src="/brand/africa-network-map.jpg"
-          alt=""
-          aria-hidden="true"
-          width={720}
-          height={489}
-          className="w-full h-auto rounded-[32px]"
-          style={{
-            maskImage: 'radial-gradient(ellipse at center, black 55%, transparent 85%)',
-            WebkitMaskImage: 'radial-gradient(ellipse at center, black 55%, transparent 85%)',
-          }}
-        />
-      </div>
-
       <div className="max-w-7xl mx-auto px-6 w-full">
-        <div className="max-w-2xl">
-          <Reveal>
-            <div className="mb-6"><MonadMark size={36} /></div>
-            <span className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-purple-light">
-              <span className="w-1.5 h-1.5 rounded-sm bg-purple shadow-[0_0_10px_#8C79FF]" />
-              Welcome to Monad Africa
-            </span>
-          </Reveal>
-          <Reveal delay={100}>
-            <h1 className="font-display font-semibold text-[clamp(2.4rem,6vw,4.4rem)] leading-[1.05] tracking-tight mt-5 mb-6">
-              {renderHeroTitle(content.hero_title)}
-            </h1>
-          </Reveal>
-          <Reveal delay={200}>
-            <p className="text-lg text-white/60 leading-relaxed max-w-xl mb-9">{content.hero_subtitle}</p>
-          </Reveal>
-          <Reveal delay={300}>
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-              {primaryExternal ? (
-                <a href={primaryHref} target="_blank" rel="noopener noreferrer" className="px-8 py-4 rounded-full font-semibold text-center bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
-                  {primaryLabel} →
-                </a>
-              ) : (
-                <Link to={primaryHref} className="px-8 py-4 rounded-full font-semibold text-center bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
-                  {primaryLabel} →
-                </Link>
-              )}
-              {secondaryExternal ? (
-                <a href={secondaryHref} target="_blank" rel="noopener noreferrer" className="px-8 py-4 rounded-full font-semibold text-center border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">
-                  {secondaryLabel}
-                </a>
-              ) : (
-                <Link to={secondaryHref} className="px-8 py-4 rounded-full font-semibold text-center border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">
-                  {secondaryLabel}
-                </Link>
-              )}
-            </div>
-          </Reveal>
+        <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-10 lg:gap-14 items-center">
+          <div>
+            <Reveal>
+              <div className="mb-6"><MonadMark size={36} /></div>
+              <span className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-purple-light">
+                {/* The subtle "live" status dot — gentle glow/fade loop via
+                    tailwind.config.js's monad-pulse animation; only this
+                    dot animates, never the text. motion-reduce:animate-none
+                    drops the animation (keeping the static glow) for
+                    prefers-reduced-motion. */}
+                <span className="w-1.5 h-1.5 rounded-sm bg-purple shadow-[0_0_10px_#8C79FF] animate-monad-pulse motion-reduce:animate-none" />
+                Welcome to Monad Africa
+              </span>
+            </Reveal>
+            <Reveal delay={100}>
+              <h1 className="font-display font-semibold text-[clamp(2.4rem,5.5vw,4rem)] leading-[1.05] tracking-tight mt-5 mb-6">
+                {renderHeroTitle(content.hero_title)}
+              </h1>
+            </Reveal>
+            <Reveal delay={200}>
+              <p className="text-lg text-white/60 leading-relaxed max-w-xl mb-9">{content.hero_subtitle}</p>
+            </Reveal>
+            <Reveal delay={300}>
+              <div className="flex flex-wrap items-center gap-4 mb-4">
+                {primaryExternal ? (
+                  <a href={primaryHref} target="_blank" rel="noopener noreferrer" className="px-8 py-4 rounded-full font-semibold text-center bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
+                    {primaryLabel} →
+                  </a>
+                ) : (
+                  <Link to={primaryHref} className="px-8 py-4 rounded-full font-semibold text-center bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
+                    {primaryLabel} →
+                  </Link>
+                )}
+                {secondaryExternal ? (
+                  <a href={secondaryHref} target="_blank" rel="noopener noreferrer" className="px-8 py-4 rounded-full font-semibold text-center border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">
+                    {secondaryLabel}
+                  </a>
+                ) : (
+                  <Link to={secondaryHref} className="px-8 py-4 rounded-full font-semibold text-center border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">
+                    {secondaryLabel}
+                  </Link>
+                )}
+              </div>
+            </Reveal>
 
-          {/* Smaller, visually secondary — sits under the two primary
-              buttons rather than beside them. Reuses the existing
-              signup/auth flow (no second auth system): signed-out
-              visitors go to /signup, someone already signed in goes
-              straight to their dashboard instead of being asked to
-              sign up again. */}
-          <Reveal delay={350}>
-            <Link to={session ? '/dashboard' : '/signup'} className="inline-block text-sm font-semibold text-white/50 hover:text-white transition-colors mb-14">
-              {session ? 'Go to Dashboard' : 'Get Started'} →
-            </Link>
-          </Reveal>
+            {/* Smaller, visually secondary — sits under the two primary
+                buttons rather than beside them. Reuses the existing
+                signup/auth flow (no second auth system): signed-out
+                visitors go to /signup, someone already signed in goes
+                straight to their dashboard instead of being asked to
+                sign up again. */}
+            <Reveal delay={350}>
+              {/* Secondary-tier CTA, deliberately not a third filled
+                  button — a ghost pill (border + transparent fill until
+                  hover) sits a clear step below the two solid buttons
+                  above while still reading as a real, clickable target
+                  instead of the easy-to-miss plain text link this used
+                  to be. */}
+              <Link
+                to={session ? '/dashboard' : '/signup'}
+                className="group inline-flex items-center gap-2 text-base font-semibold text-white/70 hover:text-white px-5 py-2.5 rounded-full border border-white/15 hover:border-purple/40 hover:bg-white/5 transition-all mb-10"
+              >
+                {session ? 'Go to Dashboard' : 'Get Started'}
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </Link>
+            </Reveal>
 
-          <Reveal delay={400}>
-            <div className="flex flex-wrap gap-x-10 gap-y-4">
-              {stats.map((s) => (
-                <div key={s.label}>
-                  <div className="font-display font-semibold text-2xl"><Counter value={s.value} suffix="+" /></div>
-                  <div className="text-white/45 text-xs mt-1">{s.label}</div>
-                </div>
-              ))}
-            </div>
+            <Reveal delay={400}>
+              <div className="flex flex-wrap gap-x-8 gap-y-4">
+                {stats.map((s) => (
+                  <div key={s.label} className="flex items-center gap-2.5">
+                    <s.Icon size={16} className="text-purple-light shrink-0" />
+                    <div>
+                      <div className="font-display font-semibold text-xl leading-none"><Counter value={s.value} suffix="+" /></div>
+                      <div className="text-white/45 text-xs mt-1">{s.label}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+
+          {/* The Africa map — derived from the real Monad Africa "network
+              map" brand asset (public/brand/africa-network-map.jpg —
+              identical file to references/map.jpeg), not a hand-drawn SVG
+              outline. A CSS mask over the opaque jpg still left a faint
+              rectangular edge/background visible, because the jpg itself
+              has no alpha channel — masking only fakes transparency at
+              the image's own border, it can't remove the solid
+              background inside it. So this is a real cutout: a one-time
+              processing pass (Pillow, see the session notes) keyed the
+              jpg's dark background out by luminance into genuine alpha
+              transparency, then applied the same purple hue shift
+              directly into the pixels — africa-network-map-purple.webp
+              (71KB). Its glow, nodes and connecting lines are the exact
+              same real artwork's bright pixels, just with the actual
+              background gone rather than hidden. The live, per-country
+              interactive map (real leaderboard_public data) still lives
+              further down in "Explore Africa", unchanged — the hero's
+              job is brand art, not a data visualization. */}
+          <Reveal delay={150} className="order-first lg:order-last">
+            <img
+              src="/brand/africa-network-map-purple.webp"
+              alt="Stylized network map of the African continent, representing the Monad ecosystem's reach across Africa"
+              width={699}
+              height={440}
+              className="w-full h-auto max-h-[280px] lg:max-h-[480px] object-contain mx-auto"
+            />
           </Reveal>
         </div>
       </div>
@@ -303,160 +363,58 @@ const Hero = memo(function Hero({
   )
 })
 
-// "Explore" — the first pillar. Real ecosystem projects + partner logos
-// (same tables the full /explore and /ecosystem pages read), kept here
-// as compact logo bands rather than duplicating the fuller cards —
-// merely a taste of the ecosystem, not another dashboard.
-const ExplorePreview = memo(function ExplorePreview({ projects, partners }: { projects: EcosystemProject[] | null; partners: Partner[] | null }) {
-  const hasProjects = projects === null || projects.length > 0
-  const hasPartners = partners === null || partners.length > 0
-  if (!hasProjects && !hasPartners) return null // no clutter from an empty section
-
-  return (
-    <section className="py-28 relative overflow-hidden">
-      <AfricaNetworkMap className="absolute -z-10 w-[600px] max-w-[80vw] opacity-[0.06] left-[-10%] top-1/2 -translate-y-1/2" />
-      <div className="max-w-7xl mx-auto px-6">
-        <SectionIntro
-          kicker="Explore"
-          title="Discover the ecosystem across Africa."
-          subtitle="Projects building on Monad, and the partners supporting them — from Lagos to Nairobi to Cape Town."
-          cta={{ label: 'Explore the ecosystem', to: '/explore' }}
-        />
-
-        {hasProjects && (
-          <div className="mb-16">
-            <span className="block text-xs font-mono uppercase tracking-wider text-white/40 mb-6">Projects building on Monad</span>
-            {projects === null ? (
-              <div className="flex flex-wrap gap-5">
-                {[0, 1, 2, 3, 4].map((i) => <div key={i} className="w-24 h-24 rounded-2xl border border-white/10 bg-white/[0.02] animate-pulse" />)}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-5">
-                {projects.map((p, i) => (
-                  <Reveal key={p.id} delay={Math.min(i, 10) * 40}>
-                    <LogoTile name={p.name} logoUrl={p.logo_url} website={p.website} />
-                  </Reveal>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {hasPartners && (
-          <div>
-            <span className="block text-xs font-mono uppercase tracking-wider text-white/40 mb-6">Community partners</span>
-            {partners === null ? (
-              <div className="flex flex-wrap gap-5">
-                {[0, 1, 2, 3].map((i) => <div key={i} className="w-24 h-24 rounded-2xl border border-white/10 bg-white/[0.02] animate-pulse" />)}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-5">
-                {partners.map((p, i) => (
-                  <Reveal key={p.id} delay={Math.min(i, 10) * 40}>
-                    <LogoTile name={p.name} logoUrl={p.logo_url} website={p.website} />
-                  </Reveal>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </section>
-  )
-})
-
-function LogoTile({ name, logoUrl, website }: { name: string; logoUrl: string | null; website: string | null }) {
-  const content = (
-    <div className="group w-24 h-24 rounded-2xl border border-white/10 bg-white/[0.03] flex items-center justify-center overflow-hidden transition-all hover:-translate-y-1 hover:border-purple/40 hover:shadow-[0_0_30px_-8px_rgba(110,84,255,0.6)]">
-      {logoUrl ? (
-        <img src={logoUrl} alt={name} loading="lazy" className="w-12 h-12 object-contain grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all" />
-      ) : (
-        <span className="font-display font-bold text-sm text-white/50 group-hover:text-white transition-colors">{name.slice(0, 2).toUpperCase()}</span>
-      )}
-    </div>
-  )
-  return website ? (
-    <a href={website} target="_blank" rel="noopener noreferrer" title={name}>{content}</a>
-  ) : (
-    <div title={name}>{content}</div>
-  )
+// "Live across the ecosystem" — a compact teaser of /events'
+// "Ecosystem Pulse" feed (ecosystem_activity, migration 0043/0046).
+// Deliberately NOT a fake calendar: real published rows only, each with
+// an honest freshness label (freshnessLabel never claims "Live" unless
+// a row genuinely still is). The icon/tint per card is a presentation
+// choice keyed off real fields (pulse_category, falling back to a
+// neutral default) — it never changes what data is shown, just how a
+// real category reads visually.
+const PULSE_VISUAL: Partial<Record<NonNullable<EcosystemActivity['pulse_category']>, { Icon: typeof Sparkles; tint: string }>> = {
+  event: { Icon: CalendarDays, tint: 'bg-purple/15 text-purple-light' },
+  announcement: { Icon: Megaphone, tint: 'bg-amber-400/15 text-amber-300' },
+  network: { Icon: Radio, tint: 'bg-emerald-400/15 text-emerald-300' },
+  builder: { Icon: Users, tint: 'bg-purple/15 text-purple-light' },
+  ecosystem: { Icon: Boxes, tint: 'bg-purple/15 text-purple-light' },
+  community: { Icon: MessageCircle, tint: 'bg-rose-400/15 text-rose-300' },
 }
+const DEFAULT_PULSE_VISUAL = { Icon: Sparkles, tint: 'bg-purple/15 text-purple-light' }
 
-// "Team" — the curated, official Monad Africa roster (team_members),
-// deliberately NOT the wider community leaderboard directory (that's
-// /builders — still a live page, just no longer what this section or
-// the nav's "Team" label point to). Reuses TeamMemberCard as-is, same
-// component /team itself uses, so the visual treatment matches exactly.
-const TeamPreview = memo(function TeamPreview({ members }: { members: TeamMember[] | null }) {
-  if (members !== null && members.length === 0) return null // no clutter from an empty section
-
-  return (
-    <section className="py-28 bg-panel/30 border-y border-white/10">
-      <div className="max-w-7xl mx-auto px-6">
-        <SectionIntro
-          kicker="Team"
-          title="Meet the builders behind Monad Africa."
-          subtitle="The people building and running Monad Africa across the continent."
-          cta={{ label: 'Meet the team', to: '/team' }}
-        />
-
-        {members === null ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {[0, 1].map((i) => <div key={i} className="h-64 rounded-squircle border border-white/10 bg-white/[0.02] animate-pulse" />)}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {members.map((m, i) => (
-              <Reveal key={m.id} delay={i * 60}><TeamMemberCard member={m} highlight={m.is_bd_lead} /></Reveal>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  )
-})
-
-// A tasteful teaser of /events' "ecosystem intelligence" feed — real
-// rows from ecosystem_activity (migration 0043), each with a genuine
-// freshness label (never a blanket "Live" unless it actually is one).
-// Deliberately NOT a duplicate of the Events page: just the 3 most
-// recent published entries, linking out for the full feed + Africa map.
-const EcosystemActivityPreview = memo(function EcosystemActivityPreview({ activity }: { activity: EcosystemActivity[] | null }) {
+const LiveEcosystemSection = memo(function LiveEcosystemSection({ activity }: { activity: EcosystemActivity[] | null }) {
   if (activity !== null && activity.length === 0) return null // no clutter from an empty section
 
   return (
-    <section className="py-28 relative overflow-hidden">
+    <section className="py-16">
       <div className="max-w-7xl mx-auto px-6">
-        <SectionIntro
-          kicker="Ecosystem pulse"
-          title="Latest ecosystem activity."
-          subtitle="What's happening across Monad right now — globally and across Africa."
-          cta={{ label: 'View all events', to: '/events' }}
-        />
+        <SectionIntro kicker="What's happening" title="Live across the ecosystem" cta={{ label: 'View all updates', to: '/events' }} />
 
         {activity === null ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {[0, 1, 2].map((i) => <div key={i} className="h-40 rounded-squircle border border-white/10 bg-white/[0.02] animate-pulse" />)}
+            {[0, 1, 2].map((i) => <div key={i} className="h-36 rounded-2xl border border-white/10 bg-white/[0.02] animate-pulse" />)}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {activity.map((item, i) => (
-              <Reveal key={item.id} delay={i * 60}>
-                <Link to="/events" className="block rounded-squircle border border-white/10 bg-white/[0.02] p-6 h-full hover:border-purple/40 hover:-translate-y-1 transition-all">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/15 text-white/50">{item.status}</span>
-                    {item.category && <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/15 text-white/40">{item.category}</span>}
-                  </div>
-                  <h3 className="font-display font-semibold text-base mb-2 leading-snug">{item.title}</h3>
-                  {item.statistic_value ? (
-                    <div className="font-display font-semibold text-xl text-purple-light">{item.statistic_value}</div>
-                  ) : (
-                    item.description && <p className="text-white/50 text-sm leading-relaxed line-clamp-2">{item.description}</p>
-                  )}
-                  <div className="text-white/35 text-[11px] font-mono mt-4">{freshnessLabel(item)}</div>
-                </Link>
-              </Reveal>
-            ))}
+            {activity.map((item, i) => {
+              const { Icon, tint } = (item.pulse_category && PULSE_VISUAL[item.pulse_category]) || DEFAULT_PULSE_VISUAL
+              return (
+                <Reveal key={item.id} delay={i * 60}>
+                  <Link to="/events" className="block rounded-2xl border border-white/10 bg-white/[0.02] p-5 h-full hover:border-purple/40 hover:-translate-y-1 transition-all">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tint}`}><Icon size={17} /></div>
+                      <span className="text-[10px] font-mono uppercase text-white/40 truncate">{item.category || item.status}</span>
+                    </div>
+                    <h3 className="font-display font-semibold text-base mb-1.5 leading-snug">{item.title}</h3>
+                    {item.statistic_value ? (
+                      <div className="font-display font-semibold text-lg text-purple-light">{item.statistic_value}</div>
+                    ) : (
+                      item.description && <p className="text-white/50 text-xs leading-relaxed line-clamp-2">{item.description}</p>
+                    )}
+                    <div className="text-white/35 text-[10px] font-mono mt-3">{freshnessLabel(item)}</div>
+                  </Link>
+                </Reveal>
+              )
+            })}
           </div>
         )}
       </div>
@@ -464,81 +422,224 @@ const EcosystemActivityPreview = memo(function EcosystemActivityPreview({ activi
   )
 })
 
-// "Opportunities" — the third pillar. Real bounties, single-column list
-// rows (Superteam Earn-style, not a card grid) — same BountyCard the
-// full /bounties page uses, so the apply/credit flow can't drift.
-const OpportunitiesPreview = memo(function OpportunitiesPreview({ bounties, settings }: { bounties: Bounty[] | null; settings: SiteSettings }) {
+// The 3-column "discovery" area — Opportunities / Featured Builders /
+// Built in Africa, all real data, all compact rows. Replaces what used
+// to be three separate full-width sections; the reference's dense
+// 3-up layout groups them as one cohesive "here's the platform" view
+// instead of a long scroll of similar-looking bands.
+const DiscoveryGrid = memo(function DiscoveryGrid({
+  bounties,
+  teamMembers,
+  projects,
+}: {
+  bounties: Bounty[] | null
+  teamMembers: TeamMember[] | null
+  projects: EcosystemProject[] | null
+}) {
   return (
-    <section className="py-28">
+    <section className="py-16">
       <div className="max-w-7xl mx-auto px-6">
-        <SectionIntro
-          kicker="Opportunities"
-          title="Real work, real rewards."
-          subtitle="Bounties, grants, and paid work from projects building on Monad — reviewed and approved by the Monad Africa team before they go live."
-          cta={{ label: 'View all opportunities', to: '/opportunities' }}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <Reveal>
+            <DiscoveryColumn kicker="Opportunities" title="Find your next opportunity" cta={{ label: 'Explore all opportunities', to: '/opportunities' }}>
+              {bounties === null ? (
+                <RowSkeletons />
+              ) : bounties.length === 0 ? (
+                <p className="text-white/40 text-xs py-4">No active opportunities yet — check back soon.</p>
+              ) : (
+                bounties.map((b) => <OpportunityRow key={b.id} bounty={b} />)
+              )}
+            </DiscoveryColumn>
+          </Reveal>
 
-        {bounties === null ? (
-          <div className="flex flex-col gap-4">
-            {[0, 1, 2].map((i) => <div key={i} className="h-24 rounded-2xl border border-white/10 bg-white/[0.02] animate-pulse" />)}
-          </div>
-        ) : bounties.length === 0 ? (
-          <EmptyState
-            Icon={Target}
-            message={'No active opportunities yet.\n\nJoin the Monad Africa community to get notified when new opportunities go live.'}
-            actions={[
-              { label: 'Join Telegram', href: settings.telegram_url, external: true },
-              { label: 'Join Discord', href: settings.discord_url, external: true },
-              { label: 'Follow on X', href: settings.x_url, external: true },
-            ]}
-          />
-        ) : (
-          <div className="flex flex-col gap-4">
-            {bounties.map((b, i) => (
-              <Reveal key={b.id} delay={i * 60}><BountyCard bounty={b} variant="row" /></Reveal>
-            ))}
-          </div>
-        )}
+          <Reveal delay={80}>
+            <DiscoveryColumn kicker="Featured builders" title="Meet the builders" cta={{ label: 'Meet the team', to: '/team' }}>
+              {teamMembers === null ? (
+                <RowSkeletons />
+              ) : teamMembers.length === 0 ? (
+                <p className="text-white/40 text-xs py-4">Team profiles are being set up.</p>
+              ) : (
+                teamMembers.map((m) => <TeamMemberRow key={m.id} member={m} />)
+              )}
+            </DiscoveryColumn>
+          </Reveal>
+
+          <Reveal delay={160}>
+            <DiscoveryColumn kicker="Built in Africa" title="Projects building on Monad" cta={{ label: 'Explore all projects', to: '/explore' }}>
+              {projects === null ? (
+                <RowSkeletons />
+              ) : projects.length === 0 ? (
+                <p className="text-white/40 text-xs py-4">No projects published yet.</p>
+              ) : (
+                projects.map((p) => <ProjectRow key={p.id} project={p} />)
+              )}
+            </DiscoveryColumn>
+          </Reveal>
+        </div>
       </div>
     </section>
   )
 })
 
-function UpcomingEventTeaser({ event, onOpen }: { event: EventListing; onOpen: () => void }) {
-  const organiser = event.organiser_name || 'Monad Africa'
-  const isOnline = (event.location || '').toLowerCase().includes('online') || (event.location || '').toLowerCase().includes('virtual')
-
+function RowSkeletons() {
   return (
-    <button onClick={onOpen} className="group text-left rounded-squircle border border-white/10 bg-white/[0.02] p-6 flex flex-col gap-4 h-full hover:border-purple/40 hover:bg-white/[0.04] transition-colors">
-      <div className="flex items-center gap-2.5">
-        <OrganiserLogo name={organiser} logoUrl={event.organiser_logo_url} size={32} />
-        <span className="text-xs text-white/45 truncate">{organiser}</span>
-      </div>
-      <h3 className="font-display font-semibold text-lg leading-snug">{event.title}</h3>
-      <div className="mt-auto pt-2 flex flex-col gap-1.5 text-xs text-white/50">
-        <div className="flex items-center gap-2">
-          <CalendarDays size={13} className="text-purple-light shrink-0" />
-          {formatEventDate(event.event_date)}
-        </div>
-        {event.location && (
-          <div className="flex items-center gap-2">
-            <MapPin size={13} className="text-purple-light shrink-0" />
-            <span className="truncate">{isOnline ? 'Online' : event.location}</span>
-          </div>
-        )}
-      </div>
-      <span className="text-sm font-semibold text-purple-light group-hover:text-white transition-colors">View event →</span>
-    </button>
+    <div className="flex flex-col divide-y divide-white/10">
+      {[0, 1, 2].map((i) => <div key={i} className="h-14 flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-white/[0.04] animate-pulse shrink-0" /><div className="h-3 w-2/3 rounded bg-white/[0.04] animate-pulse" /></div>)}
+    </div>
   )
 }
 
-// "Community" — the fourth pillar. Real upcoming events plus the actual
-// community channels (Discord/X/Telegram, from site_settings) — a
-// preview of what /community shows in full.
-const CommunityPreview = memo(function CommunityPreview({ events, settings }: { events: EventListing[] | null; settings: SiteSettings }) {
+function DiscoveryColumn({
+  kicker,
+  title,
+  cta,
+  children,
+}: {
+  kicker: string
+  title: string
+  cta: { label: string; to: string }
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-squircle border border-white/10 bg-white/[0.02] p-6 flex flex-col h-full">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-purple-light">{kicker}</span>
+      <h3 className="font-display font-semibold text-lg mt-2 mb-1">{title}</h3>
+      <div className="flex-1 flex flex-col divide-y divide-white/10 mt-2">{children}</div>
+      <Link to={cta.to} className="mt-5 pt-4 border-t border-white/10 text-sm font-semibold text-purple-light hover:text-white transition-colors">
+        {cta.label} →
+      </Link>
+    </div>
+  )
+}
+
+function OpportunityRow({ bounty }: { bounty: Bounty }) {
+  return (
+    <Link to="/opportunities" className="flex items-center gap-3 py-2.5 -mx-2 px-2 rounded-lg hover:bg-white/[0.03] transition-colors group">
+      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 text-[10px] font-display font-bold">
+        {bounty.logo_url ? <img src={bounty.logo_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : bounty.project_name.slice(0, 2).toUpperCase()}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium truncate group-hover:text-purple-light transition-colors">{bounty.title}</div>
+        <div className="text-white/40 text-xs truncate">{bounty.reward} · Due {formatEventDate(bounty.deadline)}</div>
+      </div>
+      <span className="text-[9px] font-mono uppercase px-2 py-1 rounded-full border border-white/15 text-white/45 shrink-0">{bounty.category}</span>
+    </Link>
+  )
+}
+
+function ProjectRow({ project }: { project: EcosystemProject }) {
+  const inner = (
+    <div className="flex items-center gap-3 py-2.5">
+      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 text-[10px] font-display font-bold">
+        {project.logo_url ? <img src={project.logo_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : project.name.slice(0, 2).toUpperCase()}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium truncate">{project.name}</div>
+        {project.category && <div className="text-white/40 text-xs truncate">{project.category}</div>}
+      </div>
+    </div>
+  )
+  return project.website ? (
+    <a href={project.website} target="_blank" rel="noopener noreferrer" className="-mx-2 px-2 rounded-lg hover:bg-white/[0.03] transition-colors block">{inner}</a>
+  ) : (
+    <div>{inner}</div>
+  )
+}
+
+// The larger, standalone Africa section — same real per-country data as
+// the hero map (passed down from Home()), just a bigger map plus a
+// "Popular Countries" list. Mirrors /explore's own "Explore Africa"
+// section (same component, same query), so the two stay visually and
+// factually consistent.
+const ExploreAfricaSection = memo(function ExploreAfricaSection({ countries }: { countries: { name: string; count: number }[] | null }) {
+  const mapNodes: MapNode[] = useMemo(
+    () =>
+      (countries ?? [])
+        .map((c): MapNode | null => {
+          const pos = positionFor(c.name)
+          if (!pos) return null
+          return { name: c.name, x: pos.x, y: pos.y, value: c.count, detail: `${c.count} builder${c.count === 1 ? '' : 's'}` }
+        })
+        .filter((n): n is MapNode => n !== null),
+    [countries],
+  )
+
+  return (
+    <section className="py-16 relative overflow-hidden">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="rounded-[40px] border border-white/10 bg-panel/30 p-8 md:p-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr_0.7fr] gap-10 items-center">
+            <Reveal>
+              <span className="font-mono text-xs uppercase tracking-wider text-purple-light flex items-center gap-2"><Globe2 size={14} /> Explore Africa</span>
+              <h2 className="font-display font-semibold text-2xl md:text-3xl mt-4 mb-4">Discover the ecosystem across the continent.</h2>
+              <p className="text-white/55 text-sm leading-relaxed max-w-md mb-7">
+                Monad Africa connects builders, creators, projects, opportunities and communities across
+                African countries — every node on the map is a real, registered builder location.
+              </p>
+              <Link to="/explore" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
+                Explore Africa Map →
+              </Link>
+            </Reveal>
+
+            <Reveal delay={100}>
+              {countries === null ? (
+                <div className="aspect-[600/620] max-h-[380px] rounded-3xl bg-white/[0.02] animate-pulse" />
+              ) : (
+                <AfricaNetworkMap nodes={mapNodes} interactive className="w-full max-h-[380px] mx-auto" />
+              )}
+            </Reveal>
+
+            <Reveal delay={150}>
+              <span className="block text-xs font-mono uppercase tracking-wider text-white/40 mb-4">Popular Countries</span>
+              {countries === null ? (
+                <div className="flex flex-col gap-2.5">
+                  {[0, 1, 2, 3].map((i) => <div key={i} className="h-4 rounded bg-white/[0.03] animate-pulse" />)}
+                </div>
+              ) : countries.length === 0 ? (
+                <p className="text-white/40 text-xs">Country data will appear as builders join and set their location.</p>
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {countries.slice(0, 8).map((c) => {
+                    const flag = flagFor(c.name)
+                    return (
+                      <div key={c.name} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="flex items-center gap-2 min-w-0">
+                          {flag && <span className="shrink-0">{flag}</span>}
+                          <span className="truncate text-white/75">{c.name}</span>
+                        </span>
+                        <span className="text-white/35 text-xs font-mono shrink-0">{c.count}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <Link to="/explore" className="inline-block mt-4 text-xs font-semibold text-purple-light hover:text-white transition-colors">View all countries →</Link>
+            </Reveal>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+})
+
+// "Community" — real upcoming events, real community channels
+// (site_settings), and a real Top Contributors ranking
+// (leaderboard_public.xp, same data /leaderboard uses). The reference's
+// fourth card ("Community Stories") has no real backing content model
+// in this app yet, so it's deliberately left out rather than filled
+// with placeholder copy — see the session's final report.
+const CommunitySection = memo(function CommunitySection({
+  events,
+  settings,
+  topContributors,
+}: {
+  events: EventListing[] | null
+  settings: SiteSettings
+  topContributors: PublicProfile[] | null
+}) {
   const navigate = useNavigate()
   const { session } = useAuth()
-  const upcoming = useMemo(() => (events ?? []).slice(0, 2), [events])
+  const upcoming = useMemo(() => (events ?? []).slice(0, 3), [events])
 
   function openEvent(event: EventListing) {
     if (!session) {
@@ -555,39 +656,70 @@ const CommunityPreview = memo(function CommunityPreview({ events, settings }: { 
   ].filter((c) => !!c.href)
 
   return (
-    <section className="py-28 bg-panel/30 border-y border-white/10">
+    <section className="py-16 bg-panel/30 border-y border-white/10">
       <div className="max-w-7xl mx-auto px-6">
         <SectionIntro
           kicker="Community"
           title="Connect, learn, and grow together."
-          subtitle="Events, meetups, and the channels where African builders and community members find each other."
+          subtitle="Events, channels, and the people most active across Monad Africa."
           cta={{ label: 'Visit the community', to: '/community' }}
         />
 
-        {upcoming.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-10">
-            {upcoming.map((e, i) => (
-              <Reveal key={e.id} delay={i * 60}>
-                <UpcomingEventTeaser event={e} onOpen={() => openEvent(e)} />
-              </Reveal>
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
+          <CommunityCard icon={CalendarDays} label="Upcoming Events">
+            {upcoming.length === 0 ? (
+              <p className="text-white/40 text-xs">No upcoming events right now.</p>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/10">
+                {upcoming.map((e) => (
+                  <button key={e.id} onClick={() => openEvent(e)} className="text-left py-2 first:pt-0 last:pb-0 hover:text-purple-light transition-colors">
+                    <div className="text-sm font-medium truncate">{e.title}</div>
+                    <div className="text-white/40 text-xs mt-0.5">{formatEventDate(e.event_date)}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+            <Link to="/events" className="mt-4 pt-3 border-t border-white/10 text-xs font-semibold text-purple-light hover:text-white transition-colors block">View all events →</Link>
+          </CommunityCard>
 
-        <Reveal className="flex flex-wrap gap-3 mb-10">
-          {channels.map((c) => (
-            <a
-              key={c.label}
-              href={c.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-5 py-3 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 transition-colors text-sm font-medium"
-            >
-              {c.icon ? <c.icon size={15} className="text-purple-light" /> : <span className="text-purple-light text-xs font-bold">𝕏</span>}
-              {c.label}
-            </a>
-          ))}
-        </Reveal>
+          <CommunityCard icon={MessageCircle} label="Community Channels">
+            {channels.length === 0 ? (
+              <p className="text-white/40 text-xs">Channels coming soon.</p>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/10">
+                {channels.map((c) => (
+                  <a key={c.label} href={c.href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 py-2 first:pt-0 last:pb-0 hover:text-purple-light transition-colors">
+                    {c.icon ? <c.icon size={14} className="text-purple-light shrink-0" /> : <span className="text-purple-light text-xs font-bold shrink-0">𝕏</span>}
+                    <span className="text-sm font-medium">{c.label}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+            <Link to="/community" className="mt-4 pt-3 border-t border-white/10 text-xs font-semibold text-purple-light hover:text-white transition-colors block">Join a channel →</Link>
+          </CommunityCard>
+
+          <CommunityCard icon={Trophy} label="Top Contributors">
+            {topContributors === null ? (
+              <RowSkeletons />
+            ) : topContributors.length === 0 ? (
+              <p className="text-white/40 text-xs">Rankings will appear as builders earn XP.</p>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/10">
+                {topContributors.map((p, i) => (
+                  <div key={p.id} className="flex items-center gap-2.5 py-2 first:pt-0 last:pb-0">
+                    <span className="text-white/30 text-xs font-mono w-3 shrink-0">{i + 1}</span>
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 text-[9px] font-display font-bold">
+                      {p.avatar_url ? <img src={p.avatar_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : (p.full_name || p.username || '?').slice(0, 1).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium truncate flex-1 min-w-0">{p.full_name || p.username || 'Builder'}</span>
+                    <span className="text-white/35 text-xs font-mono shrink-0">{p.xp} XP</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Link to="/leaderboard" className="mt-4 pt-3 border-t border-white/10 text-xs font-semibold text-purple-light hover:text-white transition-colors block">View leaderboard →</Link>
+          </CommunityCard>
+        </div>
 
         <Reveal>
           <span className="block text-xs font-mono uppercase tracking-wider text-white/40 mb-4">Monad Africa community</span>
@@ -598,17 +730,28 @@ const CommunityPreview = memo(function CommunityPreview({ events, settings }: { 
   )
 })
 
+function CommunityCard({ icon: Icon, label, children }: { icon: typeof CalendarDays; label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-squircle border border-white/10 bg-white/[0.02] p-5 flex flex-col h-full">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-8 h-8 rounded-lg bg-purple/15 text-purple-light flex items-center justify-center shrink-0"><Icon size={15} /></div>
+        <span className="font-display font-semibold text-sm">{label}</span>
+      </div>
+      <div className="flex-1">{children}</div>
+    </div>
+  )
+}
+
 function FinalCta({ settings }: { settings: SiteSettings }) {
   return (
-    <section className="py-28">
+    <section className="py-20">
       <div className="max-w-5xl mx-auto px-6">
         <Reveal>
-          <div className="relative rounded-[40px] border border-white/10 bg-gradient-to-br from-panel to-ink p-14 md:p-20 text-center overflow-hidden">
+          <div className="relative rounded-[40px] border border-white/10 bg-gradient-to-br from-panel to-ink p-12 md:p-16 text-center overflow-hidden">
             <div className="absolute -z-10 w-[500px] h-[500px] bg-sunset rounded-full blur-[100px] opacity-20 -top-40 left-1/2 -translate-x-1/2" />
             <h2 className="font-display font-semibold text-3xl md:text-5xl mb-5">Africa is building. Find your place.</h2>
             <p className="text-white/60 max-w-lg mx-auto mb-9 leading-relaxed">
-              Join thousands of builders, creators and contributors shaping the future of Monad
-              — wherever you are on the continent.
+              Join the growing community of builders, creators and contributors shaping the future of Monad in Africa.
             </p>
             <div className="flex flex-wrap gap-4 justify-center mb-8">
               <Link to="/signup" className="px-7 py-4 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
@@ -620,7 +763,7 @@ function FinalCta({ settings }: { settings: SiteSettings }) {
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-2 justify-center text-sm">
               <Link to="/host-bounty" className="text-white/50 hover:text-white transition-colors">Have an opportunity to host? →</Link>
-              <Link to="/partner" className="text-white/50 hover:text-white transition-colors">Partner with Monad Africa →</Link>
+              <Link to="/partners#partner-form" className="text-white/50 hover:text-white transition-colors">Partner with Monad Africa →</Link>
             </div>
           </div>
         </Reveal>

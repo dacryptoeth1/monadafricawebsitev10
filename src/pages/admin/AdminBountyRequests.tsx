@@ -31,6 +31,25 @@ export default function AdminBountyRequests({ showToast }: { showToast: (msg: st
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [notesDraft, setNotesDraft] = useState('')
   const [editing, setEditing] = useState<BountyHostingRequest | null>(null)
+  // Selection only — no bulk action exists on this panel (approve/
+  // reject/publish all still act on one request at a time), so this is
+  // purely the select-individually/multiple/all mechanism.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  // A status-tab (or category/search) change must not leave a stale
+  // selection referring to requests no longer visible.
+  useEffect(() => {
+    setSelected(new Set())
+  }, [statusFilter])
+
+  function toggleSelect(id: string) {
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   async function load() {
     setLoading(true)
@@ -94,6 +113,38 @@ export default function AdminBountyRequests({ showToast }: { showToast: (msg: st
     await load()
   }
 
+  // Delete only ever targets rejected requests — reuses the existing
+  // "admins delete bounty hosting requests" RLS policy (migration 0037,
+  // already unrestricted for any admin, any status), so no new
+  // migration/policy is needed for this. The single-delete button only
+  // renders on a rejected row (BountyRequestCard below); bulk delete
+  // only renders while the "rejected" status tab itself is active, so
+  // the current selection can never contain anything but rejected rows
+  // — an approved/pending/draft/changes_requested row can never be
+  // deleted through this action, by construction.
+  async function deleteOne(r: BountyHostingRequest) {
+    const ok = await runAdminAction(
+      () => supabase.from('bounty_hosting_requests').delete().eq('id', r.id),
+      showToast,
+      { confirmMessage: `Delete submission?\n\n"${r.title || r.project_name || 'Untitled'}" — this action permanently removes this submission. This cannot be undone.`, successMessage: 'Deleted' },
+    )
+    if (ok) { setSelected((s) => { const next = new Set(s); next.delete(r.id); return next }); await load() }
+  }
+
+  async function deleteSelected() {
+    const ids = Array.from(selected)
+    if (ids.length === 0) return
+    const ok = await runAdminAction(
+      () => supabase.from('bounty_hosting_requests').delete().in('id', ids),
+      showToast,
+      {
+        confirmMessage: `Delete ${ids.length} rejected submission${ids.length === 1 ? '' : 's'}?\n\nThis action permanently removes the selected submission${ids.length === 1 ? '' : 's'}. This cannot be undone.`,
+        successMessage: `${ids.length} submission${ids.length === 1 ? '' : 's'} deleted`,
+      },
+    )
+    if (ok) { setSelected(new Set()); await load() }
+  }
+
   function openNotes(r: BountyHostingRequest) {
     setExpandedId(expandedId === r.id ? null : r.id)
     setNotesDraft(r.admin_notes || '')
@@ -132,11 +183,46 @@ export default function AdminBountyRequests({ showToast }: { showToast: (msg: st
       {filtered.length === 0 ? (
         <div className="text-white/40 text-sm py-10 text-center">No bounty hosting requests match this filter.</div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <>
+          <div className="flex items-center gap-3 mb-3 text-xs text-white/50">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filtered.every((r) => selected.has(r.id))}
+                onChange={(e) => setSelected(e.target.checked ? new Set(filtered.map((r) => r.id)) : new Set())}
+                aria-label="Select all visible bounty requests"
+              />
+              Select all visible ({filtered.length})
+            </label>
+            {selected.size > 0 && (
+              <span className="flex items-center gap-2">
+                <span className="text-purple-light font-semibold">{selected.size} selected</span>
+                <button onClick={() => setSelected(new Set())} className="text-white/40 hover:text-white underline underline-offset-2">Clear</button>
+                {/* Only ever shown on the "rejected" tab — every selected
+                    id is guaranteed rejected, so this can't reach an
+                    approved/pending/draft row. */}
+                {statusFilter === 'rejected' && (
+                  <button onClick={deleteSelected} className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-400/15 text-rose-300 border border-rose-400/30 hover:bg-rose-400/25">
+                    Delete {selected.size} selected
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-3">
           {filtered.map((r) => (
-            <div key={r.id} className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+            <div key={r.id} className={`rounded-2xl border p-5 transition-colors ${
+              selected.has(r.id) ? 'border-purple bg-purple/[0.06] ring-1 ring-purple/40' : 'border-white/10 bg-white/[0.02]'
+            }`}>
               <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                 <div className="min-w-0 flex items-start gap-3 flex-1">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(r.id)}
+                    onChange={() => toggleSelect(r.id)}
+                    aria-label={`Select ${r.title || 'this bounty request'}`}
+                    className="mt-1.5 shrink-0"
+                  />
                   {r.logo_url && <img src={r.logo_url} alt="" loading="lazy" className="w-10 h-10 rounded-lg object-cover border border-white/10 shrink-0" />}
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -160,6 +246,9 @@ export default function AdminBountyRequests({ showToast }: { showToast: (msg: st
                   )}
                   {r.status === 'approved' && !r.published_bounty_id && (
                     <button onClick={() => publish(r)} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-br from-purple-glow to-purple">Publish</button>
+                  )}
+                  {r.status === 'rejected' && (
+                    <button onClick={() => deleteOne(r)} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-400/15 text-rose-300 border border-rose-400/30 hover:bg-rose-400/25">Delete</button>
                   )}
                   {r.published_bounty_id && (
                     <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-emerald-300/30 text-emerald-300">Published</span>
@@ -206,7 +295,8 @@ export default function AdminBountyRequests({ showToast }: { showToast: (msg: st
               )}
             </div>
           ))}
-        </div>
+          </div>
+        </>
       )}
 
       {editing && <RequestEditorModal request={editing} showToast={showToast} onClose={() => setEditing(null)} onSaved={load} />}

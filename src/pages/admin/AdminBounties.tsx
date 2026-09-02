@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Search } from 'lucide-react'
 import type { Bounty, BountyCategory, BountyCompletionReport, BountyDifficulty, BountyLifecycleStatus, VerificationBadgeType } from '../../types'
 import { bountyLifecycleStatus } from '../../types'
@@ -87,6 +87,26 @@ export default function AdminBounties({
   const [filter, setFilter] = useState<BountyLifecycleStatus | 'all'>('all')
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Bounty | 'new' | null>(null)
+  // Selection only — no bulk action exists on this panel yet (every
+  // action button below still acts on one bounty at a time), so this
+  // is purely the "select individually / select multiple / select all"
+  // mechanism the admin dashboard needs, not a new destructive feature.
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  // Switching status tabs (or search) must not leave a stale selection
+  // referring to bounties that are no longer even visible.
+  useEffect(() => {
+    setSelected(new Set())
+  }, [filter])
+
+  function toggleSelect(id: string) {
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const counts = useMemo(() => {
     const c: Record<BountyLifecycleStatus, number> = { active: 0, closed: 0, draft: 0, deleted: 0 }
@@ -143,7 +163,25 @@ export default function AdminBounties({
           {bounties.length === 0 ? 'No bounties yet — create one to get started.' : 'No bounties match this filter/search.'}
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <>
+          <div className="flex items-center gap-3 mb-3 text-xs text-white/50">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={filtered.every((b) => selected.has(b.id))}
+                onChange={(e) => setSelected(e.target.checked ? new Set(filtered.map((b) => b.id)) : new Set())}
+                aria-label="Select all visible bounties"
+              />
+              Select all visible ({filtered.length})
+            </label>
+            {selected.size > 0 && (
+              <span className="flex items-center gap-2">
+                <span className="text-purple-light font-semibold">{selected.size} selected</span>
+                <button onClick={() => setSelected(new Set())} className="text-white/40 hover:text-white underline underline-offset-2">Clear</button>
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-3">
           {filtered.map((b) => (
             <BountyRow
               key={b.id}
@@ -151,6 +189,8 @@ export default function AdminBounties({
               submissionCount={submissionCounts[b.id] ?? 0}
               applicationCount={applicationCounts[b.id] ?? 0}
               completionReport={completionReports[b.id]}
+              selected={selected.has(b.id)}
+              onToggleSelect={() => toggleSelect(b.id)}
               onEdit={() => setEditing(b)}
               onApprove={() => onApprove(b)}
               onReject={() => onReject(b)}
@@ -164,7 +204,8 @@ export default function AdminBounties({
               onApproveCompletionReport={() => onApproveCompletionReport(b)}
             />
           ))}
-        </div>
+          </div>
+        </>
       )}
 
       {editing && (
@@ -187,6 +228,8 @@ function BountyRow({
   submissionCount,
   applicationCount,
   completionReport,
+  selected,
+  onToggleSelect,
   onEdit,
   onApprove,
   onReject,
@@ -203,6 +246,8 @@ function BountyRow({
   submissionCount: number
   applicationCount: number
   completionReport?: BountyCompletionReport
+  selected: boolean
+  onToggleSelect: () => void
   onEdit: () => void
   onApprove: () => void
   onReject: () => void
@@ -220,8 +265,18 @@ function BountyRow({
   const [showReport, setShowReport] = useState(false)
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-      <div className="min-w-0 flex-1">
+    <div className={`rounded-2xl border p-5 flex flex-col lg:flex-row lg:items-start justify-between gap-4 transition-colors ${
+      selected ? 'border-purple bg-purple/[0.06] ring-1 ring-purple/40' : 'border-white/10 bg-white/[0.02]'
+    }`}>
+      <div className="min-w-0 flex-1 flex items-start gap-3">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          aria-label={`Select ${b.title}`}
+          className="mt-1.5 shrink-0"
+        />
+        <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2 mb-1.5">
           <h3 className="font-display font-semibold truncate">{b.title}</h3>
           <span className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border ${STATUS_BADGE[lifecycle]}`}>{lifecycle}</span>
@@ -259,6 +314,7 @@ function BountyRow({
             )}
           </div>
         )}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 lg:justify-end lg:max-w-[300px]">

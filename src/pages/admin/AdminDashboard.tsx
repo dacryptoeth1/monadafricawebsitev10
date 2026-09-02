@@ -411,7 +411,7 @@ export default function AdminDashboard() {
               { name: 'name', label: 'Name' },
               { name: 'handle', label: 'Social handle', placeholder: '@monorail_xyz' },
               { name: 'category', label: 'Category', placeholder: 'DEX Aggregator / NFT / Official / ...' },
-              { name: 'source_type', label: 'Type', placeholder: "'priority' or 'verified'" },
+              { name: 'source_type', label: 'Type', placeholder: "'priority', 'official', or 'verified'" },
               { name: 'website', label: 'Website', type: 'url' },
               { name: 'logo_url', label: 'Logo URL', type: 'url' },
               { name: 'location', label: 'Location' },

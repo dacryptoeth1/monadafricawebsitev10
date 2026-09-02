@@ -333,6 +333,13 @@ export interface TeamMember {
   avatar_url: string | null
   x_url: string | null
   telegram_url: string | null
+  // Added in migration 0047 — optional, admin-filled. All null until a
+  // real one is added; never invent a value for a member who doesn't
+  // have one.
+  linkedin_url: string | null
+  github_url: string | null
+  discord_url: string | null
+  website_url: string | null
   bio: string | null
   is_bd_lead: boolean
   display_order: number
@@ -658,6 +665,11 @@ export interface DiscordWidgetData {
 // happening) that may or may not have a date.
 export type EcosystemActivityStatus = 'live' | 'upcoming' | 'recent'
 export type EcosystemActivityRegion = 'global' | 'africa'
+// Added in migration 0046 — an explicit, admin-set tag distinguishing
+// what KIND of Ecosystem Pulse item this is (separate from `status`,
+// which is about timing/freshness). Nullable: an untagged row simply
+// doesn't appear under a Builders/Ecosystem/Community filter chip.
+export type EcosystemPulseCategory = 'event' | 'announcement' | 'network' | 'builder' | 'ecosystem' | 'community'
 // See EcosystemActivity.data_freshness below for what each value means
 // and governs in the UI — never label something 'live' that isn't
 // actually kept in sync by a scheduled job.
@@ -665,10 +677,11 @@ export type EcosystemActivityFreshness = 'live' | 'periodic' | 'curated'
 
 // public.ecosystem_sources (migration 0044) — the structured registry
 // ecosystem_activity entries can be attributed to. 'priority' is the
-// six sources the redesign brief named explicitly; 'verified' is any
-// other confirmed real project an admin adds later — the architecture
-// supports unlimited sources without touching the Events page.
-export type EcosystemSourceType = 'priority' | 'verified'
+// six sources the redesign brief named explicitly; 'official' is Monad
+// itself (added in migration 0045); 'verified' is any other confirmed
+// real project an admin adds later — the architecture supports
+// unlimited sources without touching the Events page.
+export type EcosystemSourceType = 'priority' | 'official' | 'verified'
 
 export interface EcosystemSource {
   id: string
@@ -710,11 +723,16 @@ export interface EcosystemActivity {
   category: string | null
   status: EcosystemActivityStatus
   region: EcosystemActivityRegion
+  pulse_category: EcosystemPulseCategory | null
   location: string | null
   country: string | null
   city: string | null
   latitude: number | null
   longitude: number | null
+  // Added in migration 0045 — optional link to a registered
+  // ecosystem_sources row. source_url/source_name below stay as the
+  // display fallback for anything not (yet) formally registered.
+  source_id: string | null
   source_url: string | null
   source_name: string | null
   image_url: string | null

@@ -31,9 +31,23 @@ function load(): Promise<void> {
       .select('*')
       .eq('id', 1)
       .maybeSingle()
-      .then(({ data }) => {
-        cache = data ? (data as SiteSettings) : defaultSiteSettings
+      .then(({ data, error }) => {
         inflight = null
+        if (error) {
+          // A real fetch failure is NOT the same thing as "no row
+          // exists yet" — silently caching defaultSiteSettings here
+          // used to mean one transient error could paper over a real,
+          // correctly-saved admin value with hardcoded placeholder
+          // numbers (e.g. x_followers: 1103) for the rest of the
+          // browser session, with no visible sign anything was wrong.
+          // Log it, and deliberately leave `cache` unset so the next
+          // page that calls useSiteSettings() retries for real instead
+          // of being stuck on a stale failure.
+          console.error('[useSiteSettings] Failed to load site_settings:', error.message)
+          subscribers.forEach((fn) => fn(defaultSiteSettings))
+          return
+        }
+        cache = data ? (data as SiteSettings) : defaultSiteSettings
         subscribers.forEach((fn) => fn(cache!))
       }),
   )
@@ -52,12 +66,17 @@ export function useSiteSettings(): SiteSettings {
   const [settings, setSettings] = useState<SiteSettings>(cache ?? defaultSiteSettings)
 
   useEffect(() => {
+    // Always subscribe, even when a cached value already exists —
+    // previously an already-mounted consumer that read from an
+    // existing cache skipped subscribing entirely, so it would never
+    // hear about a later invalidateSiteSettingsCache() + reload
+    // triggered by some other still-mounted page in the same tab.
+    subscribers.add(setSettings)
     if (cache) {
       setSettings(cache)
-      return
+    } else {
+      load()
     }
-    subscribers.add(setSettings)
-    load()
     return () => {
       subscribers.delete(setSettings)
     }

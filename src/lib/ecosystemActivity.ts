@@ -34,3 +34,51 @@ export const ACTIVITY_STATUS_STYLES: Record<EcosystemActivity['status'], string>
   upcoming: 'text-purple-light border-purple/30 bg-purple/10',
   recent: 'text-white/50 border-white/20 bg-white/5',
 }
+
+export const PULSE_CATEGORY_LABELS: Record<NonNullable<EcosystemActivity['pulse_category']>, string> = {
+  event: 'Event',
+  announcement: 'Announcement',
+  network: 'Network',
+  builder: 'Builders',
+  ecosystem: 'Ecosystem',
+  community: 'Community',
+}
+
+// Picks the single "Featured Moment" card for the top of /events —
+// scored, not hardcoded, so it changes as new activity is published.
+// Weighting, in order of what the redesign brief asked to prioritize:
+//   1. A bare statistic (statistic_value set, no real narrative) is
+//      deliberately scored lowest — it already gets its own compact
+//      stat tile in the hero, so it shouldn't also "win" the one big
+//      qualitative spotlight card.
+//   2. status: live > upcoming > recent — a currently-live development
+//      or a genuinely upcoming one both outrank something that already
+//      happened.
+//   3. data_freshness: live > periodic > curated — prefer something
+//      still being kept in sync over a one-time hand-entry, all else
+//      equal.
+//   4. Recency (published_at) breaks any remaining tie, newest first —
+//      this is what makes the featured card actually rotate over time
+//      instead of freezing on whatever scored highest once.
+export function featuredScore(item: EcosystemActivity): number {
+  let score = 0
+  if (item.status === 'live') score += 100
+  else if (item.status === 'upcoming') score += 70
+  else score += 40
+
+  if (item.data_freshness === 'live') score += 15
+  else if (item.data_freshness === 'periodic') score += 8
+
+  if (item.statistic_value && !item.description) score -= 60
+
+  return score
+}
+
+export function pickFeaturedMoment(items: EcosystemActivity[]): EcosystemActivity | null {
+  if (items.length === 0) return null
+  return [...items].sort((a, b) => {
+    const scoreDiff = featuredScore(b) - featuredScore(a)
+    if (scoreDiff !== 0) return scoreDiff
+    return new Date(b.published_at).getTime() - new Date(a.published_at).getTime()
+  })[0]
+}
