@@ -26,18 +26,29 @@
 //   DISCORD_BOT_TOKEN            (bot must be a member of the guild —
 //                                 see DISCORD_GUILD_ID below)
 //   TELEGRAM_BOT_TOKEN           (bot must be an admin of @monad_africa)
+//   X_BEARER_TOKEN                (X Developer Portal -> Project/App ->
+//                                 Keys and tokens -> Bearer Token —
+//                                 app-only auth, read-only, used only
+//                                 for the public GET /2/users/by/username
+//                                 lookup below. Server-side only: this
+//                                 script runs in GitHub Actions, never
+//                                 in the browser, so the token is never
+//                                 shipped to the frontend.)
 //
 // Discord's guild id is read live from site_settings.discord_guild_id
 // (Admin -> Settings) rather than duplicated as a second secret — "the
 // Monad Africa server/guild configured for the bot" is exactly that
 // existing value. Telegram's chat is the fixed public @monad_africa
-// username per the redesign brief, not a secret.
+// username per the redesign brief, not a secret. X's handle is the
+// fixed public @MonadAfrica username for the same reason.
 const TELEGRAM_CHAT_ID = '@monad_africa'
+const X_USERNAME = 'MonadAfrica'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const X_BEARER_TOKEN = process.env.X_BEARER_TOKEN
 
 function fail(msg) {
   console.error(`::error::${msg}`)
@@ -51,7 +62,7 @@ async function main() {
   }
   const restHeaders = { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
 
-  const outcomes = await Promise.all([syncDiscord(restHeaders), syncTelegram(restHeaders)])
+  const outcomes = await Promise.all([syncDiscord(restHeaders), syncTelegram(restHeaders), syncX(restHeaders)])
 
   const anyOk = outcomes.some((o) => o.ok)
   const summary = outcomes.map((o) => `${o.platform}: ${o.ok ? `ok (${o.count})` : `FAILED — ${o.reason}`}`).join('\n')
@@ -128,6 +139,37 @@ async function syncTelegram(restHeaders) {
     const reason = err instanceof Error ? err.message : String(err)
     fail(`Telegram: ${reason}`)
     return { platform: 'telegram', ok: false, reason }
+  }
+}
+
+async function syncX(restHeaders) {
+  if (!X_BEARER_TOKEN) {
+    const reason = 'X_BEARER_TOKEN not set'
+    console.warn(`X: skipped — ${reason}`)
+    return { platform: 'x', ok: false, reason }
+  }
+  try {
+    // Public metrics on the user-by-username lookup — read-only,
+    // app-only Bearer auth, no OAuth user context needed. Real
+    // follower count for @MonadAfrica, never estimated.
+    const resp = await fetch(`https://api.twitter.com/2/users/by/username/${X_USERNAME}?user.fields=public_metrics`, {
+      headers: { Authorization: `Bearer ${X_BEARER_TOKEN}` },
+    })
+    const data = await resp.json().catch(() => ({}))
+    const followers = data?.data?.public_metrics?.followers_count
+    if (!resp.ok || typeof followers !== 'number') {
+      const reason = data?.title || data?.detail || data?.errors?.[0]?.message || `X API returned ${resp.status} for @${X_USERNAME}`
+      fail(`X: ${reason}`)
+      return { platform: 'x', ok: false, reason }
+    }
+
+    await writeStat(restHeaders, 'x', followers, 'api')
+    console.log(`X: ${followers} followers (@${X_USERNAME})`)
+    return { platform: 'x', ok: true, count: followers }
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    fail(`X: ${reason}`)
+    return { platform: 'x', ok: false, reason }
   }
 }
 
