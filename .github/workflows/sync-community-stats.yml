@@ -1,0 +1,26 @@
+name: Sync Monad Africa community stats
+
+# Refreshes real Discord + Telegram member counts into Supabase
+# (community_stats table, migration 0044) every 6 hours, plus a manual
+# "Run workflow" button for on-demand testing. Runs here (not Vercel
+# Cron) because the bot tokens live as GitHub Actions repo secrets.
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Sync community stats
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: node scripts/sync-community-stats.mjs
