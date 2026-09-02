@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { MotionConfig } from 'framer-motion'
 import { AuthProvider } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -14,6 +14,8 @@ import ScrollToTop from './components/ScrollToTop'
 // should weigh down the homepage's first load.
 const Home = lazy(() => import('./pages/Home'))
 const About = lazy(() => import('./pages/About'))
+const Explore = lazy(() => import('./pages/Explore'))
+const Builders = lazy(() => import('./pages/Builders'))
 const Community = lazy(() => import('./pages/Community'))
 const Bounties = lazy(() => import('./pages/Bounties'))
 const Events = lazy(() => import('./pages/Events'))
@@ -70,9 +72,15 @@ export default function App() {
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/about" element={<About />} />
+                      <Route path="/explore" element={<Explore />} />
+                      <Route path="/builders" element={<Builders />} />
                       <Route path="/community" element={<Community />} />
                       <Route path="/leaderboard" element={<Leaderboard />} />
-                      <Route path="/bounties" element={<Bounties />} />
+                      {/* /opportunities is the canonical route (matches the
+                          main nav label) — /bounties still works and just
+                          redirects, so no existing link/bookmark breaks. */}
+                      <Route path="/opportunities" element={<Bounties />} />
+                      <Route path="/bounties" element={<Navigate to="/opportunities" replace />} />
                       <Route path="/events" element={<Events />} />
                       <Route
                         path="/host-bounty"
@@ -82,7 +90,11 @@ export default function App() {
                           </RequireAuth>
                         }
                       />
-                      <Route path="/beginner-hub" element={<BeginnerHub />} />
+                      {/* /beginners is the canonical route (matches the main
+                          nav label "Beginners Hub") — /beginner-hub still
+                          works and just redirects. */}
+                      <Route path="/beginners" element={<BeginnerHub />} />
+                      <Route path="/beginner-hub" element={<Navigate to="/beginners" replace />} />
                       <Route path="/ecosystem" element={<Ecosystem />} />
                       <Route path="/partners" element={<Partners />} />
                       <Route path="/team" element={<Team />} />

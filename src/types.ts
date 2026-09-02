@@ -553,6 +553,11 @@ export interface EventListing {
   // the Events page also offers "Verify Email & Get Invite Code",
   // gated behind proving ownership of the signed-in account's email.
   requires_email_verification: boolean
+  // Added in supabase/migrations/0040_event_organiser_fields.sql — the
+  // official organiser shown on the public event card. Both nullable;
+  // the UI falls back to "Monad Africa" / initials when blank.
+  organiser_name: string | null
+  organiser_logo_url: string | null
 }
 
 export interface EventRegistration {
@@ -643,4 +648,83 @@ export const defaultSiteSettings: SiteSettings = {
 export interface DiscordWidgetData {
   presence_count: number
   members: { id: string }[]
+}
+
+// public.ecosystem_activity (migration 0043) — "what's happening across
+// Monad right now", combining global ecosystem intelligence with
+// African Monad activity. Deliberately separate from Bounty/EventListing:
+// this isn't a registerable event or an opportunity, it's an activity
+// feed item (a stat, a milestone, a curated update, or a physical
+// happening) that may or may not have a date.
+export type EcosystemActivityStatus = 'live' | 'upcoming' | 'recent'
+export type EcosystemActivityRegion = 'global' | 'africa'
+// See EcosystemActivity.data_freshness below for what each value means
+// and governs in the UI — never label something 'live' that isn't
+// actually kept in sync by a scheduled job.
+export type EcosystemActivityFreshness = 'live' | 'periodic' | 'curated'
+
+// public.ecosystem_sources (migration 0044) — the structured registry
+// ecosystem_activity entries can be attributed to. 'priority' is the
+// six sources the redesign brief named explicitly; 'verified' is any
+// other confirmed real project an admin adds later — the architecture
+// supports unlimited sources without touching the Events page.
+export type EcosystemSourceType = 'priority' | 'verified'
+
+export interface EcosystemSource {
+  id: string
+  name: string
+  handle: string | null
+  category: string | null
+  website: string | null
+  logo_url: string | null
+  description: string | null
+  location: string | null
+  source_type: EcosystemSourceType
+  is_active: boolean
+  last_checked_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// public.community_stats (migration 0044) — real, timestamped snapshots
+// written only by scripts/sync-community-stats.mjs, run by GitHub
+// Actions (service-role, bypasses RLS) — never admin-editable. See
+// CommunityStatsSection for how the
+// frontend turns a run of these into "current count" + "+N today" +
+// staleness handling.
+export type CommunityStatPlatform = 'x' | 'discord' | 'telegram'
+
+export interface CommunityStat {
+  id: string
+  platform: CommunityStatPlatform
+  count: number
+  source: string
+  recorded_at: string
+  created_at: string
+}
+
+export interface EcosystemActivity {
+  id: string
+  title: string
+  description: string | null
+  category: string | null
+  status: EcosystemActivityStatus
+  region: EcosystemActivityRegion
+  location: string | null
+  country: string | null
+  city: string | null
+  latitude: number | null
+  longitude: number | null
+  source_url: string | null
+  source_name: string | null
+  image_url: string | null
+  statistic_value: string | null
+  statistic_label: string | null
+  data_freshness: EcosystemActivityFreshness
+  is_published: boolean
+  published_at: string
+  last_synced_at: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }

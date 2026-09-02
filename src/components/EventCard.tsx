@@ -10,6 +10,25 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'text-rose-300 border-rose-300/30 bg-rose-400/10',
 }
 
+// Fallback for an event/organiser with no logo uploaded — same "initials
+// tile" convention used for bounties, ecosystem projects and partners
+// elsewhere in the app (see BountyCard/EcosystemLogoTile), so an event
+// with no logo never falls back to a random generic icon.
+export function OrganiserLogo({ name, logoUrl, size = 40 }: { name: string; logoUrl: string | null; size?: number }) {
+  return (
+    <div
+      className="rounded-xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 font-display font-bold"
+      style={{ width: size, height: size, fontSize: size * 0.32 }}
+    >
+      {logoUrl ? (
+        <img src={logoUrl} alt={name} loading="lazy" className="w-full h-full object-cover" />
+      ) : (
+        <span>{name.slice(0, 2).toUpperCase()}</span>
+      )}
+    </div>
+  )
+}
+
 export default function EventCard({
   event,
   registeredCount,
@@ -22,6 +41,7 @@ export default function EventCard({
   const info = getRegistrationStatus(event, registeredCount)
   const startTime = formatEventTime(event.start_time)
   const endTime = formatEventTime(event.end_time)
+  const organiser = event.organiser_name || 'Monad Africa'
 
   return (
     <button
@@ -42,6 +62,10 @@ export default function EventCard({
       </div>
 
       <div className="p-5 flex flex-col gap-3 flex-1">
+        <div className="flex items-center gap-2.5">
+          <OrganiserLogo name={organiser} logoUrl={event.organiser_logo_url} size={28} />
+          <span className="text-xs text-white/45 truncate">{organiser}</span>
+        </div>
         <h3 className="font-display font-semibold text-lg leading-snug">{event.title}</h3>
         {event.description && <p className="text-white/50 text-sm line-clamp-3">{event.description}</p>}
 

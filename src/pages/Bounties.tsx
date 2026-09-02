@@ -49,11 +49,11 @@ export default function Bounties() {
 
   return (
     <section className="pt-36 pb-28 min-h-screen">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-4xl mx-auto px-6">
         <Reveal>
-          <span className="font-mono text-xs uppercase tracking-wider text-purple-light">Bounty board</span>
+          <span className="font-mono text-xs uppercase tracking-wider text-purple-light">Opportunities</span>
           <h1 className="font-display font-semibold text-4xl md:text-5xl mt-4 mb-4">Find your next opportunity.</h1>
-          <p className="text-white/55 max-w-xl mb-4">Every bounty here has been reviewed and approved by the Monad Africa team.</p>
+          <p className="text-white/55 max-w-xl mb-4">Bounties, grants, and paid work from across the Monad ecosystem — every one reviewed and approved by the Monad Africa team.</p>
           <VerificationDisclaimer className="max-w-xl mb-10" />
         </Reveal>
 
@@ -63,7 +63,7 @@ export default function Bounties() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search bounties, projects, skills…"
+              placeholder="Search opportunities, projects, skills…"
               className="input w-full pl-10"
             />
           </div>
@@ -84,8 +84,8 @@ export default function Bounties() {
         </Reveal>
 
         {filtered === null ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="h-64 rounded-squircle border border-white/10 bg-white/[0.02] animate-pulse" />)}
+          <div className="flex flex-col gap-4">
+            {[0, 1, 2, 3, 4].map((i) => <div key={i} className="h-24 rounded-2xl border border-white/10 bg-white/[0.02] animate-pulse" />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="grid grid-cols-1">
@@ -108,9 +108,9 @@ export default function Bounties() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="flex flex-col gap-4">
             {filtered.map((b, i) => (
-              <Reveal key={b.id} delay={Math.min(i, 6) * 60}><BountyCard bounty={b} /></Reveal>
+              <Reveal key={b.id} delay={Math.min(i, 6) * 50}><BountyCard bounty={b} variant="row" /></Reveal>
             ))}
           </div>
         )}

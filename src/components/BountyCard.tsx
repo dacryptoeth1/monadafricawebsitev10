@@ -22,7 +22,13 @@ const difficultyStyles: Record<Bounty['difficulty'], string> = {
 // tree on every character typed. `bounty` is a stable object reference
 // across re-renders (Array.filter() doesn't clone items), so memo's
 // default shallow-prop comparison correctly skips unaffected cards.
-export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
+//
+// `variant`: 'card' (default) is the original tall grid tile. 'row' is
+// a compact single-line list layout (Superteam Earn-style opportunity
+// list) used on the homepage and the /bounties browse page — same
+// state/handlers/modal below, only the outer presentation differs, so
+// the apply flow and credit logic can't drift between the two.
+export default memo(function BountyCard({ bounty, variant = 'card' }: { bounty: Bounty; variant?: 'card' | 'row' }) {
   const [open, setOpen] = useState(false)
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -36,10 +42,69 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
   function handleApplyClick() {
     if (unavailable) return // belt-and-suspenders — button is already disabled below
     if (!session) {
-      navigate('/login', { state: { from: '/bounties' } })
+      navigate('/login', { state: { from: '/opportunities' } })
       return
     }
     setOpen(true)
+  }
+
+  const logo = (
+    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0">
+      {bounty.logo_url ? (
+        <img src={bounty.logo_url} alt={bounty.project_name} loading="lazy" className="w-full h-full object-cover" />
+      ) : (
+        <span className="font-display font-bold text-sm">{bounty.project_name.slice(0, 2).toUpperCase()}</span>
+      )}
+    </div>
+  )
+
+  if (variant === 'row') {
+    return (
+      <>
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="rounded-2xl border border-white/10 bg-panel/70 hover:border-purple/40 transition-colors p-4 sm:p-5"
+        >
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-4">
+            {logo}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-display font-semibold text-base leading-tight truncate">{bounty.title}</h3>
+                <VerificationBadge bounty={bounty} />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap text-xs text-white/40 mt-1">
+                <span className="truncate max-w-[10rem]">{bounty.project_name}</span>
+                <span className="text-white/20">·</span>
+                <span className="font-mono uppercase text-[10px] text-white/45">{bounty.category}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-5 ml-auto sm:ml-0 shrink-0">
+              <div className="text-right">
+                <div className="font-mono font-semibold text-gold text-sm">{bounty.reward}</div>
+                <div className="text-[10px] text-white/35 font-mono mt-0.5">Due {formatDate(bounty.deadline)}</div>
+              </div>
+              {unavailable ? (
+                <span className="text-xs font-semibold text-white/30 cursor-not-allowed whitespace-nowrap" title="This bounty is no longer accepting applications">
+                  Closed
+                </span>
+              ) : (
+                <button
+                  onClick={handleApplyClick}
+                  className="px-4 py-2 rounded-full text-sm font-semibold bg-gradient-to-br from-purple-glow to-purple hover:-translate-y-0.5 transition-transform whitespace-nowrap"
+                >
+                  Apply →
+                </button>
+              )}
+              <ReportButton targetType="bounty" targetId={bounty.id} className="shrink-0" />
+            </div>
+          </div>
+
+          {bounty.completion_status === 'completed' && <CompletionReportSection bountyId={bounty.id} />}
+        </motion.div>
+
+        <AnimatePresence>{open && !unavailable && <ApplyModal bounty={bounty} onClose={() => setOpen(false)} />}</AnimatePresence>
+      </>
+    )
   }
 
   return (
@@ -57,13 +122,7 @@ export default memo(function BountyCard({ bounty }: { bounty: Bounty }) {
         className="rounded-squircle border border-white/10 bg-panel/85 p-6 flex flex-col gap-4 hover:border-purple/40 transition-colors h-full"
       >
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0">
-            {bounty.logo_url ? (
-              <img src={bounty.logo_url} alt={bounty.project_name} loading="lazy" className="w-full h-full object-cover" />
-            ) : (
-              <span className="font-display font-bold text-sm">{bounty.project_name.slice(0, 2).toUpperCase()}</span>
-            )}
-          </div>
+          {logo}
           <div className="min-w-0">
             <h3 className="font-display font-semibold text-base leading-tight truncate">{bounty.title}</h3>
             <span className="text-xs text-white/40">{bounty.project_name}</span>

@@ -7,9 +7,9 @@ import { formatEventDate } from '../../lib/eventStatus'
 import type { EventInviteCodeAdminRow, EventListing, EventListingStatus, EventRegistration } from '../../types'
 
 const EMPTY_FORM: Record<string, string> = {
-  title: '', description: '', event_date: '', start_time: '', end_time: '',
+  title: '', description: '', event_date: '', event_type: '', start_time: '', end_time: '',
   location: '', image_url: '', event_url: '', capacity: '', registration_deadline: '', status: 'published',
-  requires_email_verification: 'false',
+  requires_email_verification: 'false', organiser_name: '', organiser_logo_url: '',
 }
 
 interface VerificationStats {
@@ -90,6 +90,7 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
       title: ev.title,
       description: ev.description ?? '',
       event_date: ev.event_date ?? '',
+      event_type: ev.event_type ?? '',
       start_time: ev.start_time ?? '',
       end_time: ev.end_time ?? '',
       location: ev.location ?? '',
@@ -99,6 +100,8 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
       registration_deadline: ev.registration_deadline ? toLocalInputValue(ev.registration_deadline) : '',
       status: ev.status,
       requires_email_verification: String(ev.requires_email_verification),
+      organiser_name: ev.organiser_name ?? '',
+      organiser_logo_url: ev.organiser_logo_url ?? '',
     })
     setEditingId(ev.id)
     setShowForm(true)
@@ -116,6 +119,7 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
       title: form.title.trim(),
       description: form.description.trim() || null,
       event_date: form.event_date,
+      event_type: form.event_type.trim() || null,
       start_time: form.start_time || null,
       end_time: form.end_time || null,
       location: form.location.trim() || null,
@@ -125,6 +129,8 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
       registration_deadline: form.registration_deadline ? new Date(form.registration_deadline).toISOString() : null,
       status: form.status as EventListingStatus,
       requires_email_verification: form.requires_email_verification === 'true',
+      organiser_name: form.organiser_name.trim() || null,
+      organiser_logo_url: form.organiser_logo_url.trim() || null,
     }
 
     const ok = editingId
@@ -279,7 +285,7 @@ function EventForm({
       <div className="text-xs text-purple-light font-semibold mb-3">{editing ? 'Editing event' : 'New event'}</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <LabeledInput label="Title *" value={form.title} onChange={(v) => set('title', v)} />
-        <LabeledInput label="Location" value={form.location} onChange={(v) => set('location', v)} />
+        <LabeledInput label="Location" value={form.location} onChange={(v) => set('location', v)} placeholder="City, Country or 'Online'" />
         <LabeledInput label="Date *" type="date" value={form.event_date} onChange={(v) => set('event_date', v)} />
         <LabeledInput label="Capacity (blank = unlimited)" type="number" value={form.capacity} onChange={(v) => set('capacity', v)} />
         <LabeledInput label="Start time" type="time" value={form.start_time} onChange={(v) => set('start_time', v)} />
@@ -293,7 +299,10 @@ function EventForm({
             <option value="cancelled" className="bg-panel">Cancelled</option>
           </select>
         </div>
-        <LabeledInput label="Image URL" value={form.image_url} onChange={(v) => set('image_url', v)} />
+        <LabeledInput label="Category" value={form.event_type} onChange={(v) => set('event_type', v)} placeholder="Hackathon / Meetup / Workshop / X Space…" />
+        <LabeledInput label="Organiser name" value={form.organiser_name} onChange={(v) => set('organiser_name', v)} placeholder="Defaults to Monad Africa" />
+        <LabeledInput label="Organiser logo URL" value={form.organiser_logo_url} onChange={(v) => set('organiser_logo_url', v)} />
+        <LabeledInput label="Cover image URL" value={form.image_url} onChange={(v) => set('image_url', v)} />
         <LabeledInput label="Event link (optional)" value={form.event_url} onChange={(v) => set('event_url', v)} />
         <div className="sm:col-span-2">
           <label className="font-mono text-[10px] uppercase tracking-wider text-white/40 block mb-1.5">Description</label>
@@ -323,11 +332,11 @@ function EventForm({
   )
 }
 
-function LabeledInput({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+function LabeledInput({ label, value, onChange, type = 'text', placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return (
     <div>
       <label className="font-mono text-[10px] uppercase tracking-wider text-white/40 block mb-1.5">{label}</label>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="input w-full text-sm" />
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="input w-full text-sm" />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { formatEventDate, formatEventTime, getRegistrationStatus } from '../lib/
 import type { EventListing } from '../types'
 import CountrySelect from './CountrySelect'
 import EventVerificationPanel from './EventVerificationPanel'
+import { OrganiserLogo } from './EventCard'
 
 interface StoredRegistration {
   registrationId: string
@@ -228,7 +229,10 @@ export default function EventRegistrationModal({
         ) : (
           <>
             <span className="font-mono text-[10px] uppercase tracking-wider text-purple-light">Event registration</span>
-            <h3 className="font-display font-semibold text-xl mt-1 mb-1">{event.title}</h3>
+            <div className="flex items-center gap-3 mt-2 mb-1">
+              <OrganiserLogo name={event.organiser_name || 'Monad Africa'} logoUrl={event.organiser_logo_url} size={36} />
+              <h3 className="font-display font-semibold text-xl">{event.title}</h3>
+            </div>
             <div className="flex flex-col gap-1 text-white/50 text-xs mb-5">
               <span className="flex items-center gap-1.5"><CalendarDays size={12} /> {formatEventDate(event.event_date)}{startTime ? ` · ${startTime}${endTime ? ` – ${endTime}` : ''}` : ''}</span>
               {event.location && <span className="flex items-center gap-1.5"><MapPin size={12} /> {event.location}</span>}

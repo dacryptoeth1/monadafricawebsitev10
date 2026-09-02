@@ -29,6 +29,12 @@
       placeholder-white/25 outline-none focus:border-purple focus:bg-white/[0.06]
       transition-colors;
   }
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .line-clamp-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;

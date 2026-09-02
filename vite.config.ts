@@ -3,6 +3,18 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // `server` only affects `vite`/`vite dev` (and `preview` below) — it
+  // has no effect on `vite build`'s output, so this doesn't touch the
+  // production deployment. host: true binds the dev server to every
+  // network interface (0.0.0.0), not just localhost, so it's reachable
+  // from another device (e.g. a phone) on the same LAN via the
+  // "Network:" URL Vite prints on startup.
+  server: {
+    host: true,
+  },
+  preview: {
+    host: true,
+  },
   build: {
     chunkSizeWarningLimit: 900,
     rollupOptions: {

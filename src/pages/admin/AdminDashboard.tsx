@@ -34,6 +34,7 @@ const AdminCheckIn = lazy(() => import('./AdminCheckIn'))
 const AdminTeam = lazy(() => import('./AdminTeam'))
 const AdminPartnerships = lazy(() => import('./AdminPartnerships'))
 const AdminBountyRequests = lazy(() => import('./AdminBountyRequests'))
+const AdminEcosystemActivity = lazy(() => import('./AdminEcosystemActivity'))
 
 // Safety cap on the three top-level lists this dashboard loads in full
 // (bounties/applications/submissions back every bounty-lifecycle tab
@@ -45,7 +46,7 @@ const AdminBountyRequests = lazy(() => import('./AdminBountyRequests'))
 // direct SQL) — flagged here rather than left as an invisible ceiling.
 const LIST_SAFETY_LIMIT = 1000
 
-type Tab = 'overview' | 'analytics' | 'bounties' | 'bounty_requests' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin' | 'team' | 'partnerships'
+type Tab = 'overview' | 'analytics' | 'bounties' | 'bounty_requests' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin' | 'team' | 'partnerships' | 'ecosystem_activity' | 'ecosystem_sources'
 
 const TABS: [Tab, string, boolean][] = [
   // third element: true = staff-admin+ only (hidden from Moderators)
@@ -69,6 +70,8 @@ const TABS: [Tab, string, boolean][] = [
   ['partners', 'Partners', true],
   ['events', 'Events', true],
   ['event_registrations', 'Event Registrations', true],
+  ['ecosystem_activity', 'Ecosystem Activity', true],
+  ['ecosystem_sources', 'Ecosystem Sources', true],
   ['news', 'News', true],
   ['announcements', 'Announcements', true],
   ['homepage', 'Homepage', true],
@@ -396,6 +399,25 @@ export default function AdminDashboard() {
           <AdminTeam showToast={showToast} />
         ) : tab === 'event_registrations' ? (
           <AdminEventRegistrations showToast={showToast} />
+        ) : tab === 'ecosystem_activity' ? (
+          <AdminEcosystemActivity showToast={showToast} />
+        ) : tab === 'ecosystem_sources' ? (
+          <AdminCollectionPanel
+            showToast={showToast}
+            table="ecosystem_sources"
+            titleField="name"
+            subtitleField="handle"
+            fields={[
+              { name: 'name', label: 'Name' },
+              { name: 'handle', label: 'Social handle', placeholder: '@monorail_xyz' },
+              { name: 'category', label: 'Category', placeholder: 'DEX Aggregator / NFT / Official / ...' },
+              { name: 'source_type', label: 'Type', placeholder: "'priority' or 'verified'" },
+              { name: 'website', label: 'Website', type: 'url' },
+              { name: 'logo_url', label: 'Logo URL', type: 'url' },
+              { name: 'location', label: 'Location' },
+              { name: 'description', label: 'Description (verified only)', type: 'textarea' },
+            ]}
+          />
         ) : tab === 'settings' ? (
           <AdminSettings showToast={showToast} />
         ) : tab === 'announcements' ? (
@@ -470,8 +492,11 @@ export default function AdminDashboard() {
             subtitleField="event_date"
             fields={[
               { name: 'title', label: 'Title' },
-              { name: 'event_type', label: 'Type', placeholder: 'Meetup / Workshop / X Space' },
+              { name: 'event_type', label: 'Type', placeholder: 'Hackathon / Meetup / Workshop / X Space' },
               { name: 'event_date', label: 'Date', type: 'text', placeholder: 'YYYY-MM-DD' },
+              { name: 'location', label: 'Location', placeholder: "City, Country or 'Online'" },
+              { name: 'organiser_name', label: 'Organiser Name', placeholder: 'Defaults to Monad Africa' },
+              { name: 'organiser_logo_url', label: 'Organiser Logo URL', type: 'url' },
               { name: 'link', label: 'Link', type: 'url' },
               { name: 'description', label: 'Description', type: 'textarea' },
             ]}

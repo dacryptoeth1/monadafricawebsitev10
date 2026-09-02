@@ -190,7 +190,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    // scope: 'local' — only this browser's session is invalidated, not
+    // every session the user has open elsewhere (the default/'global'
+    // scope would sign them out everywhere). onAuthStateChange's
+    // SIGNED_OUT event (subscribed above) still fires normally either
+    // way, which is what flips session/profile back to null and
+    // updates the nav UI to its logged-out state.
+    await supabase.auth.signOut({ scope: 'local' })
   }
 
   // Supabase Auth's native 6-digit-code recovery flow — anon-key-only,

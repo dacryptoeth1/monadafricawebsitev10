@@ -1,28 +1,56 @@
 import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { CalendarDays, MessageCircle, Send, Star } from 'lucide-react'
-import { fetchDiscordWidget } from '../lib/discordWidget'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 import { useSiteSettings } from '../hooks/useSiteSettings'
+import { formatEventDate } from '../lib/eventStatus'
+import type { EventListing, PublicProfile } from '../types'
 import Reveal from '../components/Reveal'
 import Counter from '../components/Counter'
+import BuilderCard from '../components/BuilderCard'
+import CommunityStats from '../components/CommunityStats'
+import { OrganiserLogo } from '../components/EventCard'
 
+// Real X/Discord/Telegram counts now live in CommunityStats
+// (community_stats table, migration 0044 — written only by
+// scripts/sync-community-stats.mjs, run by GitHub Actions). That
+// superseded this page's old
+// client-side fetchDiscordWidget() call, which only ever surfaced
+// Discord's *online presence* count, not a true member total.
 export default function Community() {
   const settings = useSiteSettings()
-  const [liveDiscord, setLiveDiscord] = useState<{ members: number; online: number } | null>(null)
+  const { session } = useAuth()
+  const navigate = useNavigate()
+  const [events, setEvents] = useState<EventListing[] | null>(null)
+  const [contributors, setContributors] = useState<PublicProfile[] | null>(null)
 
   useEffect(() => {
-    if (!settings.discord_widget_enabled || !settings.discord_guild_id) {
-      setLiveDiscord(null)
+    const today = new Date().toISOString().slice(0, 10)
+    supabase
+      .from('events')
+      .select('*')
+      .eq('status', 'published')
+      .gte('event_date', today)
+      .order('event_date', { ascending: true })
+      .limit(4)
+      .then(({ data }) => setEvents((data as EventListing[]) ?? []))
+
+    supabase
+      .from('leaderboard_public')
+      .select('id, username, full_name, avatar_url, country, xp, total_referrals')
+      .order('xp', { ascending: false })
+      .limit(3)
+      .then(({ data }) => setContributors((data as PublicProfile[]) ?? []))
+  }, [])
+
+  function openEvent(event: EventListing) {
+    if (!session) {
+      navigate('/login', { state: { from: '/events', eventId: event.id } })
       return
     }
-    fetchDiscordWidget(settings.discord_guild_id).then((w) => {
-      setLiveDiscord(w ? { members: w.members.length, online: w.presence_count } : null)
-    })
-  }, [settings.discord_widget_enabled, settings.discord_guild_id])
-
-  const discordMembers = liveDiscord?.members ?? settings.discord_members
-  const discordOnline = liveDiscord?.online ?? settings.discord_online_manual
-  const discordIsLive = liveDiscord !== null
-  const totalCommunity = settings.x_followers + settings.telegram_members + discordMembers
+    navigate('/events', { state: { openEventId: event.id } })
+  }
 
   const channels = [
     { icon: MessageCircle, title: 'Discord', desc: 'Where the community lives day to day.', href: settings.discord_url },
@@ -58,49 +86,53 @@ export default function Community() {
           ))}
         </div>
 
+        {events !== null && events.length > 0 && (
+          <div className="mb-20">
+            <Reveal className="flex flex-wrap items-end justify-between gap-4 mb-6">
+              <h2 className="font-display font-semibold text-2xl flex items-center gap-2"><CalendarDays size={20} className="text-purple-light" /> Upcoming events</h2>
+              <Link to="/events" className="text-sm font-semibold text-purple-light hover:text-white transition-colors">View all events →</Link>
+            </Reveal>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {events.slice(0, 4).map((e, i) => (
+                <Reveal key={e.id} delay={i * 50}>
+                  <button onClick={() => openEvent(e)} className="w-full text-left flex items-center gap-4 rounded-squircle border border-white/10 bg-white/[0.02] p-5 hover:border-purple/40 transition-colors">
+                    <OrganiserLogo name={e.organiser_name || 'Monad Africa'} logoUrl={e.organiser_logo_url} size={40} />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display font-semibold text-sm truncate">{e.title}</h3>
+                      <p className="text-white/45 text-xs mt-1">{formatEventDate(e.event_date)}{e.location ? ` · ${e.location}` : ''}</p>
+                    </div>
+                  </button>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {contributors !== null && contributors.length > 0 && (
+          <div className="mb-20">
+            <Reveal className="flex flex-wrap items-end justify-between gap-4 mb-6">
+              <h2 className="font-display font-semibold text-2xl">Top contributors</h2>
+              <Link to="/builders" className="text-sm font-semibold text-purple-light hover:text-white transition-colors">Meet all builders →</Link>
+            </Reveal>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {contributors.map((c, i) => (
+                <Reveal key={c.id} delay={i * 60}><BuilderCard builder={c} /></Reveal>
+              ))}
+            </div>
+          </div>
+        )}
+
         <Reveal className="mb-4">
-          <h2 className="font-display font-semibold text-2xl">Community Dashboard</h2>
+          <h2 className="font-display font-semibold text-2xl">Monad Africa Community</h2>
         </Reveal>
-        <Reveal className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          <StatCard
-            emoji="🐦"
-            platform="X"
-            live={false}
-            primary={settings.x_followers}
-            primaryLabel="Followers"
-            delta={`+${settings.x_followers_change_week} this week`}
-          />
-          <StatCard
-            emoji="💬"
-            platform="Telegram"
-            live={false}
-            primary={settings.telegram_members}
-            primaryLabel="Members"
-            delta={`+${settings.telegram_members_change_today} today`}
-          />
-          <StatCard
-            emoji="🎮"
-            platform="Discord"
-            live={discordIsLive}
-            primary={discordMembers}
-            primaryLabel="Members"
-            delta={`${discordOnline} Online`}
-          />
-          <StatCard
-            emoji="👥"
-            platform="Total Community"
-            live={discordIsLive}
-            primary={totalCommunity}
-            primaryLabel="Members"
-            delta="Across X, Telegram & Discord"
-          />
+        <Reveal className="mb-8">
+          <CommunityStats settings={settings} />
         </Reveal>
         <Reveal className="mb-20">
           <p className="text-white/30 text-xs font-mono">
-            {discordIsLive
-              ? 'Discord numbers are live, pulled directly from Discord\u2019s public widget. '
-              : 'Discord numbers are manually updated by the team (live widget not enabled). '}
-            X and Telegram don't have a safe way to fetch live counts from the browser without exposing private API credentials, so those stay manually updated too — kept accurate by the team, refreshed regularly.
+            Each count reflects the platform's own real data, synced on a schedule where the
+            platform supports it — shown as "Manual" where it doesn't yet. Growth deltas are only
+            ever calculated from real stored snapshots, never estimated.
           </p>
         </Reveal>
 
@@ -135,37 +167,5 @@ export default function Community() {
         </Reveal>
       </div>
     </section>
-  )
-}
-
-function StatCard({
-  emoji,
-  platform,
-  live,
-  primary,
-  primaryLabel,
-  delta,
-}: {
-  emoji: string
-  platform: string
-  live: boolean
-  primary: number
-  primaryLabel: string
-  delta: string
-}) {
-  return (
-    <div className="rounded-squircle border border-white/10 bg-white/[0.02] p-6">
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-semibold flex items-center gap-2">
-          <span>{emoji}</span> {platform}
-        </span>
-        <span className={`text-[9px] font-mono uppercase px-2 py-0.5 rounded-full border ${live ? 'text-emerald-300 border-emerald-300/30 bg-emerald-300/10' : 'text-white/40 border-white/15'}`}>
-          {live ? 'Live' : 'Manual'}
-        </span>
-      </div>
-      <div className="font-display font-semibold text-2xl"><Counter value={primary} /></div>
-      <div className="text-white/40 text-xs mt-1">{primaryLabel}</div>
-      <div className="text-purple-light text-xs font-mono mt-3">{delta}</div>
-    </div>
   )
 }
