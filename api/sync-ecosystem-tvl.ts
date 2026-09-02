@@ -1,5 +1,7 @@
 // Vercel serverless function, triggered on a schedule by Vercel Cron
-// (see the `crons` entry in vercel.json — every 6 hours) — the one
+// (see the `crons` entry in vercel.json — once daily; Vercel's Hobby
+// plan only allows daily cron frequency, and a sub-daily schedule here
+// previously caused the whole deployment to be rejected) — the one
 // genuinely "live" data point on the /events "ecosystem activity" page
 // (src/pages/Events.tsx). Everything else there is honestly labeled
 // 'curated' (see migration 0043's header comment for why: no reliable

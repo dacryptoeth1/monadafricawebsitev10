@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/sync-ecosystem-tvl",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
