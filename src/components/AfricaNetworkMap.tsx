@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 
 export interface MapNode {
   name: string
@@ -40,7 +40,13 @@ const DECORATIVE_LINKS: [number, number][] = [
 // shouldn't have. Now the rings only mount (and thus only animate) while
 // the map is actually on screen, and don't mount at all for users who asked
 // for reduced motion.
-export default function AfricaNetworkMap({
+// Wrapped in memo: its parents already gate most unnecessary re-renders
+// (e.g. ExploreAfricaSection is memoized and only passes a useMemo'd
+// nodes array), but this component itself wasn't memoized before —
+// cheap, correct, zero-risk insurance against re-rendering an SVG with
+// up to 12 nodes/animations whenever an ancestor re-renders for an
+// unrelated reason.
+const AfricaNetworkMap = memo(function AfricaNetworkMap({
   className = '',
   nodes,
   links,
@@ -123,22 +129,28 @@ export default function AfricaNetworkMap({
                 }
               : {})}
           >
-            {/* CSS transform/opacity animation instead of SMIL <animate>
-                on `r` — a per-frame SVG geometry attribute change forces
-                layout+paint every frame; scaling via CSS transform is
-                compositor-only (GPU), the standard cheap way to do a
-                "pulse ring" and meaningfully lighter on mobile when
-                several nodes are animating at once. Same stagger (i*0.3s),
-                same mount/unmount gating (IntersectionObserver + reduced-
-                motion, both already handled by `animate` above) — this
-                only changes *how* the animation runs, not when. */}
+            {/* CSS transform/opacity, not SMIL — but a CSS transform on an
+                SVG shape still isn't guaranteed the same reliable
+                compositor-only fast path an equivalent HTML element gets
+                on every mobile engine (notably older/lower-end mobile
+                Safari and Chrome). With a real data set carrying up to
+                12 nodes (Home.tsx's "Explore Africa" map queries up to
+                12), that's up to 12 simultaneous infinite animations
+                competing with scroll on the same page — on mobile
+                specifically. `md:animate-network-pulse` means the
+                animation class is never applied below the md breakpoint
+                at all: mobile gets the identical static ring (same
+                stroke/opacity/radius, just not animating) instead, while
+                tablet/desktop keep the exact same pulsing effect as
+                before, completely unchanged. Same IntersectionObserver +
+                reduced-motion mount/unmount gating as before either way. */}
             <circle
               r={r + 1.5}
               fill="none"
               stroke="#A99AFF"
               strokeWidth="1"
               opacity="0.5"
-              className={animate ? 'origin-center animate-network-pulse motion-reduce:animate-none' : undefined}
+              className={animate ? 'origin-center md:animate-network-pulse motion-reduce:animate-none' : undefined}
               style={animate ? { transformBox: 'fill-box', animationDelay: `${i * 0.3}s` } : undefined}
             />
             <circle r={r} fill={i % 2 === 0 ? '#E8B75D' : '#A99AFF'} className={interactive ? 'transition-[r] duration-200' : undefined} />
@@ -165,4 +177,6 @@ export default function AfricaNetworkMap({
       )}
     </svg>
   )
-}
+})
+
+export default AfricaNetworkMap
