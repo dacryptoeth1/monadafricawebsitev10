@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Boxes, CalendarDays, Globe2, Megaphone, MessageCircle, Radio, Send, Sparkles, Target, Trophy, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -55,6 +55,46 @@ function deferIdle(fn: () => void): () => void {
   }
   const id = window.setTimeout(fn, 200)
   return () => window.clearTimeout(id)
+}
+
+// The deeper half of deferring below-the-fold work: content-visibility
+// (used throughout this file) stops the *browser* from doing layout/
+// paint for an offscreen section, but React itself still mounts every
+// component in that subtree immediately — every <Reveal>'s own
+// whileInView IntersectionObserver, every child component's effects —
+// the instant Home() first renders, regardless of how far down the
+// page they are. With ~25+ Reveal instances across the sections below
+// the hero, that's real mount-time JS work paid up front on every
+// visit, on every device, before the user has scrolled at all. This
+// defers the *mount* itself: nothing below renders (skeletons
+// included) until it's within `rootMargin` of the viewport, using one
+// plain IntersectionObserver — no Framer Motion, negligible overhead
+// of its own. A generous rootMargin (600px) means it has already
+// mounted well before a normally-scrolling visitor actually reaches
+// it, so there's no visible pop-in, only a deferred *start* time.
+function LazySection({ children, minHeight }: { children: React.ReactNode; minHeight: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (visible) return
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') { setVisible(true); return }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '600px 0px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [visible])
+
+  return <div ref={ref}>{visible ? children : <div style={{ minHeight }} />}</div>
 }
 
 const defaultSiteContent: SiteContent = {
@@ -186,11 +226,11 @@ export default function Home() {
   return (
     <>
       <Hero content={content} settings={settings} liveBountyCount={liveBountyCount} projectCount={projectCount} />
-      <LiveEcosystemSection activity={activity} />
-      <DiscoveryGrid bounties={bounties} teamMembers={teamMembers} projects={ecosystemProjects} />
-      <ExploreAfricaSection countries={countries} />
-      <CommunitySection events={events} settings={settings} topContributors={topContributors} />
-      <FinalCta settings={settings} />
+      <LazySection minHeight="820px"><LiveEcosystemSection activity={activity} /></LazySection>
+      <LazySection minHeight="1500px"><DiscoveryGrid bounties={bounties} teamMembers={teamMembers} projects={ecosystemProjects} /></LazySection>
+      <LazySection minHeight="1250px"><ExploreAfricaSection countries={countries} /></LazySection>
+      <LazySection minHeight="1450px"><CommunitySection events={events} settings={settings} topContributors={topContributors} /></LazySection>
+      <LazySection minHeight="520px"><FinalCta settings={settings} /></LazySection>
     </>
   )
 }
