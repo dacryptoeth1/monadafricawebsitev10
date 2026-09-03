@@ -25,6 +25,38 @@ import CommunityStats from '../components/CommunityStats'
 // already uses (bounties, ecosystem_activity, team_members, projects,
 // leaderboard_public, community_stats, events) — this is a
 // re-composition of real data, not a new backend.
+// Applied to every below-the-fold section: `content-visibility: auto`
+// tells the browser to skip layout/style/paint work for a subtree
+// until it's near the viewport — real, measured browser support across
+// mobile Chrome/Safari/Firefox, and a no-op (falls back to normal
+// rendering) anywhere it isn't supported, so this can't make anything
+// worse. `contain-intrinsic-size` reserves an approximate height
+// up front so the page doesn't jump when a section's real content
+// replaces the placeholder on first reveal — the `auto` keyword lets
+// the browser remember and reuse the section's *actual* height after
+// that first reveal, so any estimation error only ever costs one
+// approximate frame per section per page load, not a repeat gap.
+function SKIP_OFFSCREEN_WORK(estimatedHeight: string): React.CSSProperties {
+  return { contentVisibility: 'auto', containIntrinsicSize: `auto ${estimatedHeight}` }
+}
+
+// Runs `fn` once the browser is idle (after the current paint), instead
+// of immediately alongside the Hero's own critical requests — every
+// below-the-fold section already renders its own loading skeleton, so
+// this only changes *when* their real data starts arriving, never
+// whether it does. Safari has no requestIdleCallback, hence the
+// setTimeout fallback; returns a canceller so unmounting mid-idle
+// (fast navigation away) doesn't call setState on a gone component.
+function deferIdle(fn: () => void): () => void {
+  const w = window as Window & { requestIdleCallback?: (cb: () => void) => number; cancelIdleCallback?: (id: number) => void }
+  if (w.requestIdleCallback) {
+    const id = w.requestIdleCallback(fn)
+    return () => w.cancelIdleCallback?.(id)
+  }
+  const id = window.setTimeout(fn, 200)
+  return () => window.clearTimeout(id)
+}
+
 const defaultSiteContent: SiteContent = {
   hero_title: 'Africa is building on Monad.',
   hero_subtitle: 'Discover the people, projects and opportunities shaping the Monad ecosystem across Africa.',
@@ -51,47 +83,22 @@ export default function Home() {
   const [countries, setCountries] = useState<{ name: string; count: number }[] | null>(null)
   const [topContributors, setTopContributors] = useState<PublicProfile[] | null>(null)
 
+  // Only what the Hero (above the fold) actually renders is fetched
+  // eagerly: the two counts feeding its stats row, and site_content for
+  // the headline/copy/buttons. Everything else below the fold used to
+  // fire all nine of these queries in parallel on every homepage visit,
+  // immediately, competing with the Hero's own requests for the same
+  // connection/bandwidth on mobile — deferred (below) to right after
+  // first paint instead, via requestIdleCallback so it never blocks or
+  // delays anything actually visible yet.
   useEffect(() => {
-    // Featured first, then newest — the homepage only ever shows 4, so
-    // anything an admin has marked is_featured surfaces before it.
-    supabase
-      .from('bounties')
-      .select('*')
-      .eq('status', 'approved')
-      .eq('is_deleted', false)
-      .order('is_featured', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(4)
-      .then(({ data }) => setBounties((data as Bounty[]) ?? []))
     supabase
       .from('bounties')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .eq('is_deleted', false)
       .then(({ count }) => setLiveBountyCount(count ?? 0))
-  }, [])
-
-  useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    supabase
-      .from('events')
-      .select('*')
-      .eq('status', 'published')
-      .gte('event_date', today)
-      .order('event_date', { ascending: true })
-      .limit(9)
-      .then(({ data }) => setEvents((data as EventListing[]) ?? []))
-
-    supabase
-      .from('ecosystem_activity')
-      .select('*')
-      .eq('is_published', true)
-      .order('published_at', { ascending: false })
-      .limit(3)
-      .then(({ data }) => setActivity((data as EcosystemActivity[]) ?? []))
-  }, [])
-
-  useEffect(() => {
+    supabase.from('projects').select('id', { count: 'exact', head: true }).then(({ count }) => setProjectCount(count ?? 0))
     supabase
       .from('site_content')
       .select('*')
@@ -103,46 +110,77 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    supabase.from('projects').select('*').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(4).then(({ data }) => setEcosystemProjects((data as EcosystemProject[]) ?? []))
-    supabase.from('projects').select('id', { count: 'exact', head: true }).then(({ count }) => setProjectCount(count ?? 0))
-    // Exactly the official, curated Monad Africa roster — currently 3
-    // active members. Same table/query /team itself uses.
-    supabase
-      .from('team_members')
-      .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true })
-      .limit(3)
-      .then(({ data }) => setTeamMembers((data as TeamMember[]) ?? []))
-  }, [])
+    const cancel = deferIdle(() => {
+      // Featured first, then newest — the homepage only ever shows 4,
+      // so anything an admin has marked is_featured surfaces before it.
+      supabase
+        .from('bounties')
+        .select('*')
+        .eq('status', 'approved')
+        .eq('is_deleted', false)
+        .order('is_featured', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(4)
+        .then(({ data }) => setBounties((data as Bounty[]) ?? []))
 
-  useEffect(() => {
-    // Real per-country builder counts (leaderboard_public.country) —
-    // same source/query /explore's Africa map already uses. Powers both
-    // the hero map and the "Explore Africa" section's map + country
-    // list below; never a fake/random node.
-    supabase
-      .from('leaderboard_public')
-      .select('country')
-      .not('country', 'is', null)
-      .limit(300)
-      .then(({ data }) => {
-        const counts = new Map<string, number>()
-        for (const row of (data as { country: string | null }[]) ?? []) {
-          if (!row.country) continue
-          counts.set(row.country, (counts.get(row.country) ?? 0) + 1)
-        }
-        setCountries(Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 12))
-      })
+      const today = new Date().toISOString().slice(0, 10)
+      supabase
+        .from('events')
+        .select('*')
+        .eq('status', 'published')
+        .gte('event_date', today)
+        .order('event_date', { ascending: true })
+        .limit(9)
+        .then(({ data }) => setEvents((data as EventListing[]) ?? []))
 
-    // Real XP ranking, same leaderboard_public view /leaderboard reads —
-    // "Top Contributors" is never invented placeholder names.
-    supabase
-      .from('leaderboard_public')
-      .select('*')
-      .order('xp', { ascending: false })
-      .limit(3)
-      .then(({ data }) => setTopContributors((data as PublicProfile[]) ?? []))
+      supabase
+        .from('ecosystem_activity')
+        .select('*')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false })
+        .limit(3)
+        .then(({ data }) => setActivity((data as EcosystemActivity[]) ?? []))
+
+      supabase.from('projects').select('*').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(4).then(({ data }) => setEcosystemProjects((data as EcosystemProject[]) ?? []))
+
+      // Exactly the official, curated Monad Africa roster — currently 3
+      // active members. Same table/query /team itself uses.
+      supabase
+        .from('team_members')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+        .limit(3)
+        .then(({ data }) => setTeamMembers((data as TeamMember[]) ?? []))
+
+      // Real per-country builder counts (leaderboard_public.country) —
+      // same source/query /explore's Africa map already uses. Powers
+      // the "Explore Africa" section's map + country list below; never
+      // a fake/random node.
+      supabase
+        .from('leaderboard_public')
+        .select('country')
+        .not('country', 'is', null)
+        .limit(300)
+        .then(({ data }) => {
+          const counts = new Map<string, number>()
+          for (const row of (data as { country: string | null }[]) ?? []) {
+            if (!row.country) continue
+            counts.set(row.country, (counts.get(row.country) ?? 0) + 1)
+          }
+          setCountries(Array.from(counts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 12))
+        })
+
+      // Real XP ranking, same leaderboard_public view /leaderboard
+      // reads — "Top Contributors" is never invented placeholder names.
+      supabase
+        .from('leaderboard_public')
+        .select('*')
+        .order('xp', { ascending: false })
+        .limit(3)
+        .then(({ data }) => setTopContributors((data as PublicProfile[]) ?? []))
+    })
+    return cancel
   }, [])
 
   return (
@@ -243,8 +281,14 @@ const Hero = memo(function Hero({
   return (
     <section className="relative min-h-[92vh] md:min-h-0 flex items-center md:items-start pt-32 pb-16 overflow-hidden">
       <div className="absolute inset-0 -z-20 bg-gradient-to-br from-ink via-ink to-[#140a1e]" />
-      <div className="absolute -z-10 w-[600px] h-[600px] rounded-full bg-purple-glow blur-[120px] opacity-40 top-[-200px] right-[-160px]" />
-      <div className="absolute -z-10 w-[500px] h-[500px] rounded-full bg-sunset-coral blur-[130px] opacity-[0.18] bottom-[-200px] left-[-140px]" />
+      {/* Smaller box + lighter blur radius on mobile — a large blur
+          filter is genuinely expensive to paint on mobile GPUs, and
+          these two sit above the fold so content-visibility can't defer
+          them the way it does for every section below. Same glow, same
+          position, just a cheaper kernel size below the md breakpoint;
+          full size returns at md+ where there's more GPU headroom. */}
+      <div className="absolute -z-10 w-[340px] h-[340px] md:w-[600px] md:h-[600px] rounded-full bg-purple-glow blur-[70px] md:blur-[120px] opacity-40 top-[-200px] right-[-160px]" />
+      <div className="absolute -z-10 w-[280px] h-[280px] md:w-[500px] md:h-[500px] rounded-full bg-sunset-coral blur-[70px] md:blur-[130px] opacity-[0.18] bottom-[-200px] left-[-140px]" />
       <KentePattern className="absolute inset-0 -z-10 text-white opacity-[0.03]" />
 
       <div className="max-w-7xl mx-auto px-6 w-full">
@@ -386,7 +430,7 @@ const LiveEcosystemSection = memo(function LiveEcosystemSection({ activity }: { 
   if (activity !== null && activity.length === 0) return null // no clutter from an empty section
 
   return (
-    <section className="py-16">
+    <section className="py-16" style={SKIP_OFFSCREEN_WORK('820px')}>
       <div className="max-w-7xl mx-auto px-6">
         <SectionIntro kicker="What's happening" title="Live across the ecosystem" cta={{ label: 'View all updates', to: '/events' }} />
 
@@ -438,7 +482,7 @@ const DiscoveryGrid = memo(function DiscoveryGrid({
   projects: EcosystemProject[] | null
 }) {
   return (
-    <section className="py-16">
+    <section className="py-16" style={SKIP_OFFSCREEN_WORK('1500px')}>
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <Reveal>
@@ -566,7 +610,7 @@ const ExploreAfricaSection = memo(function ExploreAfricaSection({ countries }: {
   )
 
   return (
-    <section className="py-16 relative overflow-hidden">
+    <section className="py-16 relative overflow-hidden" style={SKIP_OFFSCREEN_WORK('1250px')}>
       <div className="max-w-7xl mx-auto px-6">
         <div className="rounded-[40px] border border-white/10 bg-panel/30 p-8 md:p-12">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr_0.7fr] gap-10 items-center">
@@ -657,7 +701,7 @@ const CommunitySection = memo(function CommunitySection({
   ].filter((c) => !!c.href)
 
   return (
-    <section className="py-16 bg-panel/30 border-y border-white/10">
+    <section className="py-16 bg-panel/30 border-y border-white/10" style={SKIP_OFFSCREEN_WORK('1450px')}>
       <div className="max-w-7xl mx-auto px-6">
         <SectionIntro
           kicker="Community"
@@ -745,7 +789,7 @@ function CommunityCard({ icon: Icon, label, children }: { icon: typeof CalendarD
 
 function FinalCta({ settings }: { settings: SiteSettings }) {
   return (
-    <section className="py-20">
+    <section className="py-20" style={SKIP_OFFSCREEN_WORK('520px')}>
       <div className="max-w-5xl mx-auto px-6">
         <Reveal>
           <div className="relative rounded-[40px] border border-white/10 bg-gradient-to-br from-panel to-ink p-12 md:p-16 text-center overflow-hidden">
