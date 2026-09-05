@@ -27,6 +27,25 @@ Password reset (`src/pages/ForgotPassword.tsx` / `AuthContext.tsx`) uses Supabas
 in `.env.example` for the full explanation and the Supabase dashboard SMTP/email-template
 setup it depends on.
 
+## Required database step for this round
+
+`supabase/migrations/0049_community_builders_and_stories.sql` must be run in the Supabase
+SQL Editor. It is additive and safe to re-run (no table dropped, no column removed, no row
+rewritten). Until it is applied the site still works — every affected surface falls back to
+a real empty state rather than erroring — but:
+
+- **Featured Builders / builder cards** show each builder's earned XP *rank* ("Rookie",
+  "Builder", ...) instead of the role they picked at signup, because `leaderboard_public`
+  doesn't expose `profiles.role` yet.
+- **Community Stories** (`/community#stories`, its homepage card, and Admin → Community
+  Stories) show the "first stories are being written" empty state, because the
+  `community_stories` table doesn't exist yet. This is the one visible console 404.
+- **/events Ecosystem Pulse category chips** match nothing, because
+  `ecosystem_activity.pulse_category` (defined back in migration 0046) is missing from the
+  live database. 0049 restates it.
+- **Admin → Ecosystem Projects** can't save a project's Category, because `projects.category`
+  (declared in 0001) is likewise missing from the live database. 0049 restates that too.
+
 ## Manual steps
 
 ### 1. Make yourself (or anyone) a Super Admin

@@ -26,7 +26,7 @@ export default function Builders() {
   useEffect(() => {
     supabase
       .from('leaderboard_public')
-      .select('id, username, full_name, avatar_url, country, xp, total_referrals')
+      .select('*')
       .order('xp', { ascending: false })
       .limit(DIRECTORY_SIZE)
       .then(({ data }) => setBuilders((data as PublicProfile[]) ?? []))

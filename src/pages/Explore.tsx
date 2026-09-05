@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Boxes, CalendarDays, Globe2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import type { EcosystemProject, EventListing } from '../types'
-import { flagFor } from '../lib/countryFlag'
+import CountryFlag from '../components/CountryFlag'
 import { positionFor } from '../lib/africaGeo'
 import { formatEventDate } from '../lib/eventStatus'
 import Reveal from '../components/Reveal'
@@ -102,18 +102,30 @@ export default function Explore() {
             <EmptyState Icon={Boxes} message="No featured ecosystem projects yet." />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {projects.map((p, i) => (
-                <Reveal key={p.id} delay={i * 50}>
-                  <a href={p.website || '#'} target="_blank" rel="noopener noreferrer" className="block rounded-squircle border border-white/10 bg-white/[0.02] p-6 h-full hover:border-purple/40 hover:-translate-y-1 transition-all">
+              {projects.map((p, i) => {
+                const body = (
+                  <>
                     <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden mb-4">
                       {p.logo_url ? <img src={p.logo_url} alt={p.name} loading="lazy" className="w-full h-full object-cover" /> : <span className="font-display font-bold text-sm">{p.name.slice(0, 2).toUpperCase()}</span>}
                     </div>
                     <h3 className="font-display font-semibold text-base mb-1.5">{p.name}</h3>
                     <p className="text-white/50 text-sm leading-relaxed line-clamp-2">{p.description}</p>
                     {p.category && <span className="inline-block mt-4 text-[10px] font-mono uppercase px-2.5 py-1 rounded-full border border-white/15 text-white/50">{p.category}</span>}
-                  </a>
-                </Reveal>
-              ))}
+                  </>
+                )
+                // A project with no website renders as a plain card, not
+                // an anchor to "#" that looks clickable and goes nowhere.
+                const base = 'block rounded-squircle border border-white/10 bg-white/[0.02] p-6 h-full'
+                return (
+                  <Reveal key={p.id} delay={i * 50}>
+                    {p.website ? (
+                      <a href={p.website} target="_blank" rel="noopener noreferrer" className={`${base} hover:border-purple/40 hover:-translate-y-1 transition-all`}>{body}</a>
+                    ) : (
+                      <div className={base}>{body}</div>
+                    )}
+                  </Reveal>
+                )
+              })}
             </div>
           )}
         </div>
@@ -140,26 +152,23 @@ export default function Explore() {
                 <p className="text-white/40 text-sm">Country data will appear here as builders join and set their location.</p>
               ) : (
                 <div className="grid grid-cols-2 gap-x-6 gap-y-3 max-w-sm">
-                  {countries.slice(0, 6).map((c) => {
-                    const flag = flagFor(c.name)
-                    return (
-                      <div key={c.name} className="flex items-center justify-between gap-2 text-sm">
-                        <span className="flex items-center gap-2 min-w-0">
-                          {flag && <span className="shrink-0">{flag}</span>}
-                          <span className="truncate text-white/75">{c.name}</span>
-                        </span>
-                        <span className="text-white/35 text-xs font-mono shrink-0">{c.count}</span>
-                      </div>
-                    )
-                  })}
+                  {countries.slice(0, 6).map((c) => (
+                    <div key={c.name} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <CountryFlag country={c.name} size={12} />
+                        <span className="truncate text-white/75">{c.name}</span>
+                      </span>
+                      <span className="text-white/35 text-xs font-mono shrink-0">{c.count}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </Reveal>
             <Reveal delay={100}>
               {countries === null ? (
-                <div className="aspect-[600/620] max-h-[420px] rounded-3xl bg-white/[0.02] animate-pulse" />
+                <div className="aspect-[699/440] max-h-[420px] rounded-3xl bg-white/[0.02] animate-pulse" />
               ) : (
-                <AfricaNetworkMap nodes={mapNodes} interactive className="w-full max-h-[420px] mx-auto" />
+                <AfricaNetworkMap nodes={mapNodes} interactive showLabels className="block w-full max-w-full h-auto max-h-[420px] mx-auto" />
               )}
             </Reveal>
           </div>

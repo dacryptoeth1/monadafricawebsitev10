@@ -111,6 +111,13 @@ export interface PublicProfile {
   country: string | null
   xp: number
   total_referrals: number
+  // Added to the view in migration 0049 — the builder's own
+  // self-selected role from signup, so a public builder card can say
+  // what someone does instead of only how much XP they have. Optional
+  // in the type as well as nullable in the column: a client that hasn't
+  // had 0049 applied yet simply gets `undefined` and renders the
+  // XP-rank fallback, rather than throwing.
+  role?: UserRole | null
 }
 
 export type UserRole = 'Developer' | 'Designer' | 'Content Creator' | 'Community Member' | 'Founder' | 'Student'
@@ -346,6 +353,16 @@ export interface TeamMember {
   is_active: boolean
   created_at: string
   updated_at: string
+  // NOT YET a real column on team_members — no migration has added
+  // either of these. Declared here, optional, only so the homepage's
+  // "Featured Builders" row (TeamMemberFeaturedRow) can show a team
+  // member's country/flag and an XP-style badge the moment the table
+  // actually has real values for them, without a second layout change.
+  // Until then `select('*')` simply doesn't return these keys, both
+  // stay `undefined`, and the row renders without those two elements —
+  // never an invented flag or number.
+  country?: string | null
+  points?: number | null
 }
 
 export const PARTNERSHIP_TYPES = [
@@ -714,6 +731,30 @@ export interface CommunityStat {
   source: string
   recorded_at: string
   created_at: string
+}
+
+// public.community_stories (migration 0049) — the "Community Stories"
+// experience surfaced on /community#stories and teased from the
+// homepage's Community section. Admin-curated: a story only exists here
+// because someone on the team published a real one, so an empty table
+// renders an honest empty state rather than placeholder narratives.
+export interface CommunityStory {
+  id: string
+  title: string
+  excerpt: string | null
+  body: string | null
+  cover_image_url: string | null
+  author_name: string | null
+  author_avatar_url: string | null
+  /** Plain country name, matching profiles.country — same flag lookup. */
+  author_country: string | null
+  /** External destination ("Read story"); null means the excerpt is the story. */
+  link: string | null
+  is_published: boolean
+  published_at: string
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface EcosystemActivity {

@@ -46,7 +46,7 @@ const AdminEcosystemActivity = lazy(() => import('./AdminEcosystemActivity'))
 // direct SQL) — flagged here rather than left as an invisible ceiling.
 const LIST_SAFETY_LIMIT = 1000
 
-type Tab = 'overview' | 'analytics' | 'bounties' | 'bounty_requests' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin' | 'team' | 'partnerships' | 'ecosystem_activity' | 'ecosystem_sources'
+type Tab = 'overview' | 'analytics' | 'bounties' | 'bounty_requests' | 'applications' | 'submissions' | 'users' | 'roles' | 'credits' | 'xp' | 'leaderboard' | 'reports' | 'projects' | 'resources' | 'videos' | 'partners' | 'events' | 'news' | 'announcements' | 'homepage' | 'settings' | 'event_registrations' | 'checkin' | 'team' | 'partnerships' | 'ecosystem_activity' | 'ecosystem_sources' | 'community_stories'
 
 const TABS: [Tab, string, boolean][] = [
   // third element: true = staff-admin+ only (hidden from Moderators)
@@ -72,6 +72,7 @@ const TABS: [Tab, string, boolean][] = [
   ['event_registrations', 'Event Registrations', true],
   ['ecosystem_activity', 'Ecosystem Activity', true],
   ['ecosystem_sources', 'Ecosystem Sources', true],
+  ['community_stories', 'Community Stories', true],
   ['news', 'News', true],
   ['announcements', 'Announcements', true],
   ['homepage', 'Homepage', true],
@@ -416,6 +417,26 @@ export default function AdminDashboard() {
               { name: 'logo_url', label: 'Logo URL', type: 'url' },
               { name: 'location', label: 'Location' },
               { name: 'description', label: 'Description (verified only)', type: 'textarea' },
+            ]}
+          />
+        ) : tab === 'community_stories' ? (
+          // Backs the Community Stories experience on /community#stories
+          // and its homepage teaser (migration 0049). Nothing is shown
+          // publicly until a real story is added here.
+          <AdminCollectionPanel
+            showToast={showToast}
+            table="community_stories"
+            titleField="title"
+            subtitleField="author_name"
+            fields={[
+              { name: 'title', label: 'Title' },
+              { name: 'excerpt', label: 'Excerpt (shown on the card)', type: 'textarea' },
+              { name: 'body', label: 'Full story (optional)', type: 'textarea' },
+              { name: 'author_name', label: 'Author name' },
+              { name: 'author_avatar_url', label: 'Author avatar URL', type: 'url' },
+              { name: 'author_country', label: 'Author country', placeholder: 'Nigeria / Ghana / Kenya — must match the country name exactly' },
+              { name: 'cover_image_url', label: 'Cover image URL', type: 'url' },
+              { name: 'link', label: 'Read-more link (optional)', type: 'url' },
             ]}
           />
         ) : tab === 'settings' ? (

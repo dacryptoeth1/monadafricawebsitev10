@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion'
 import { Send } from 'lucide-react'
 import type { TeamMember } from '../types'
 import TeamMemberModal from './TeamMemberModal'
+import CountryFlag from './CountryFlag'
 
 // Clean initials fallback (e.g. "Crypto Testeer" → "CT") — used until a
 // member has a real profile photo uploaded via Admin → Team Management.
@@ -142,6 +143,65 @@ export function TeamMemberRow({ member }: { member: TeamMember }) {
           <div className="font-display font-semibold text-sm truncate group-hover:text-purple-light transition-colors">{member.name}</div>
           <div className="text-white/40 text-xs truncate">{member.primary_role}</div>
         </div>
+      </div>
+    </>
+  )
+}
+
+// The homepage's "Featured Builders / Meet the builders" row — the
+// Monad Africa core team (team_members), laid out to match the
+// reference layout exactly: a circular photo, name + role stacked
+// underneath, then (once real per-member data exists for them) a
+// country/flag line and an XP/points-style badge on the right.
+//
+// `team_members` currently has no `country` or points/XP column — see
+// TeamMember in types.ts — so those two elements aren't rendered yet
+// rather than being filled with an invented flag or number. The row is
+// already built to show them the moment real values exist: give a
+// member a `country` (matching the exact country name used elsewhere,
+// e.g. "Nigeria") and a `points` count and both lines appear
+// automatically, no further layout change needed.
+export function TeamMemberFeaturedRow({ member }: { member: TeamMember }) {
+  const [open, setOpen] = useState(false)
+  const country = member.country ?? null
+  const points = member.points ?? null
+
+  return (
+    <>
+      <div
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true) } }}
+        role="button"
+        tabIndex={0}
+        aria-haspopup="dialog"
+        aria-label={`View ${member.name}'s profile`}
+        className="flex items-center gap-3 py-2.5 -mx-2 px-2 rounded-lg cursor-pointer hover:bg-white/[0.03] transition-colors group"
+      >
+        {/* Circular, per the reference — every other row/card variant in
+            this file uses rounded-xl; this is the one deliberately
+            round. */}
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 text-xs font-display font-bold">
+          {member.avatar_url ? (
+            <img src={member.avatar_url} alt={member.name} loading="lazy" className="w-full h-full object-cover" />
+          ) : (
+            initialsFor(member.name)
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-display font-semibold text-sm truncate group-hover:text-purple-light transition-colors">{member.name}</div>
+          <div className="text-white/40 text-xs truncate">{member.primary_role}</div>
+          {country && (
+            <div className="text-white/40 text-xs flex items-center gap-1.5 mt-0.5">
+              <CountryFlag country={country} size={10} />
+              <span className="truncate">{country}</span>
+            </div>
+          )}
+        </div>
+        {points != null && (
+          <span className="text-[10px] font-mono px-2 py-1 rounded-full border border-purple/30 bg-purple/10 text-purple-light shrink-0">
+            {points} XP
+          </span>
+        )}
       </div>
 
       <AnimatePresence>

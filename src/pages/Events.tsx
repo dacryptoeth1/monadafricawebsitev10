@@ -364,13 +364,13 @@ export default function Events() {
             </Reveal>
             <Reveal delay={100}>
               {countries === null ? (
-                <div className="aspect-[600/620] max-h-[420px] rounded-3xl bg-white/[0.02] animate-pulse" />
+                <div className="aspect-[699/440] max-h-[420px] rounded-3xl bg-white/[0.02] animate-pulse" />
               ) : mapNodes.length === 0 ? (
-                <div className="aspect-[600/620] max-h-[420px] rounded-3xl border border-dashed border-white/10 flex items-center justify-center px-6">
+                <div className="aspect-[699/440] max-h-[420px] rounded-3xl border border-dashed border-white/10 flex items-center justify-center px-6">
                   <p className="text-white/40 text-sm text-center">Map data will appear here as builders join and set their location.</p>
                 </div>
               ) : (
-                <AfricaNetworkMap nodes={mapNodes} interactive className="w-full max-h-[420px] mx-auto" />
+                <AfricaNetworkMap nodes={mapNodes} interactive showLabels className="block w-full max-w-full h-auto max-h-[420px] mx-auto" />
               )}
             </Reveal>
           </div>

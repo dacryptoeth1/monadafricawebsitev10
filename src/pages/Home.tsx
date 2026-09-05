@@ -1,30 +1,42 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Boxes, CalendarDays, Globe2, Megaphone, MessageCircle, Radio, Send, Sparkles, Target, Trophy, Users } from 'lucide-react'
+import { BookOpen, Boxes, CalendarDays, Globe2, Mic, Sparkles, Target, Trophy, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import type { Bounty, EcosystemActivity, EcosystemProject, EventListing, PublicProfile, SiteContent, SiteSettings, TeamMember } from '../types'
+import type { Bounty, CommunityStory, EcosystemProject, EventListing, PublicProfile, SiteContent, SiteSettings, TeamMember } from '../types'
 import { useSiteSettings } from '../hooks/useSiteSettings'
 import { formatEventDate } from '../lib/eventStatus'
-import { freshnessLabel } from '../lib/ecosystemActivity'
-import { flagFor } from '../lib/countryFlag'
 import { positionFor } from '../lib/africaGeo'
-import Reveal from '../components/Reveal'
 import Counter from '../components/Counter'
 import AfricaNetworkMap, { type MapNode } from '../components/AfricaNetworkMap'
 import { KentePattern } from '../components/PatternBackground'
-import { TeamMemberRow } from '../components/TeamMemberCard'
+import CountryFlag from '../components/CountryFlag'
+import { TeamMemberFeaturedRow } from '../components/TeamMemberCard'
 import MonadMark from '../components/MonadMark'
 import CommunityStats from '../components/CommunityStats'
 
-// Redesigned around a reference layout the user supplied
-// (references/interface.jpeg): dense, card-based, Africa-map-centric —
-// Hero -> Live Ecosystem -> 3-column Discovery (Opportunities / Team /
-// Projects) -> Explore Africa -> Community -> final CTA. Every section
-// still reads from the exact same tables/queries the rest of the site
-// already uses (bounties, ecosystem_activity, team_members, projects,
-// leaderboard_public, community_stats, events) — this is a
-// re-composition of real data, not a new backend.
+// Built against the reference layout the product spec supplies
+// (references/interface.jpeg — "the book"): dense, card-based,
+// Africa-map-centric — Hero -> Live across the ecosystem -> 3-column
+// Discovery (Opportunities / Featured Builders / Projects) -> Explore
+// Africa -> Community -> final CTA. Every section reads from the exact
+// same tables/queries the rest of the site already uses (bounties,
+// projects, events, leaderboard_public, community_stories,
+// community_stats) — this is a re-composition of real data, not a new
+// backend, and nothing on this page is hardcoded.
+//
+// Two deliberate corrections against the book, from the marketing
+// review:
+//   * "Live across the ecosystem" shows THIS PLATFORM'S activity — a
+//     real opportunity, a real project, a real event — exactly the
+//     three card types the book draws. It used to show generic Monad
+//     blog posts and a global TVL figure from `ecosystem_activity`,
+//     which is what "doesn't correlate with what's in the book" meant.
+//     That feed still exists in full on /events (Ecosystem Pulse),
+//     where global Monad news belongs.
+//   * "Featured Builders" shows registered community members from
+//     `leaderboard_public`, not the Monad Africa team roster. The team
+//     has its own page at /team.
 // Applied to every below-the-fold section: `content-visibility: auto`
 // tells the browser to skip layout/style/paint work for a subtree
 // until it's near the viewport — real, measured browser support across
@@ -60,18 +72,18 @@ function deferIdle(fn: () => void): () => void {
 // The deeper half of deferring below-the-fold work: content-visibility
 // (used throughout this file) stops the *browser* from doing layout/
 // paint for an offscreen section, but React itself still mounts every
-// component in that subtree immediately — every <Reveal>'s own
-// whileInView IntersectionObserver, every child component's effects —
-// the instant Home() first renders, regardless of how far down the
-// page they are. With ~25+ Reveal instances across the sections below
-// the hero, that's real mount-time JS work paid up front on every
-// visit, on every device, before the user has scrolled at all. This
-// defers the *mount* itself: nothing below renders (skeletons
-// included) until it's within `rootMargin` of the viewport, using one
-// plain IntersectionObserver — no Framer Motion, negligible overhead
-// of its own. A generous rootMargin (600px) means it has already
-// mounted well before a normally-scrolling visitor actually reaches
-// it, so there's no visible pop-in, only a deferred *start* time.
+// component in that subtree immediately — every <HomeReveal>'s own
+// intersection tracking, every child component's effects — the instant
+// Home() first renders, regardless of how far down the page they are.
+// With 18 HomeReveal instances across the sections below the hero,
+// that's real mount-time JS work paid up front on every visit, on
+// every device, before the user has scrolled at all. This defers the
+// *mount* itself: nothing below renders (skeletons included) until
+// it's within `rootMargin` of the viewport, using one plain
+// IntersectionObserver — no Framer Motion, negligible overhead of its
+// own. A generous rootMargin (600px) means it has already mounted well
+// before a normally-scrolling visitor actually reaches it, so there's
+// no visible pop-in, only a deferred *start* time.
 function LazySection({ children, minHeight }: { children: React.ReactNode; minHeight: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
@@ -97,6 +109,100 @@ function LazySection({ children, minHeight }: { children: React.ReactNode; minHe
   return <div ref={ref}>{visible ? children : <div style={{ minHeight }} />}</div>
 }
 
+// A homepage-only replacement for the shared `<Reveal>` component
+// (src/components/Reveal.tsx, still used unchanged by 22 other pages —
+// not touched here). Home.tsx mounts 18 of these, each previously a
+// full Framer Motion `motion.div` with its own `whileInView` visual
+// element, animation controls, and viewport-intersection tracking —
+// real per-instance setup cost for an effect that's visually just
+// "fade in + rise 24px, once." This produces the exact same visible
+// animation (same 700ms cubic-bezier(0.2,0.7,0.2,1) easing, the same
+// 24px default rise, the same "-80px" trigger margin, still once-only)
+// with a single plain IntersectionObserver per instance and a CSS
+// transition instead — no Framer Motion involved. Respects
+// prefers-reduced-motion the same way MotionConfig's `reducedMotion:
+// "user"` does app-wide: drops the rise, keeps the opacity fade.
+function HomeReveal({
+  children,
+  className = '',
+  delay = 0,
+  y = 24,
+}: {
+  children: React.ReactNode
+  className?: string
+  delay?: number
+  y?: number
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [shown, setShown] = useState(false)
+  const [reduceMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') { setShown(true); return }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShown(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '-80px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: shown ? 1 : 0,
+        transform: reduceMotion || shown ? 'none' : `translateY(${y}px)`,
+        transition: `opacity 0.7s cubic-bezier(0.2,0.7,0.2,1) ${delay}ms, transform 0.7s cubic-bezier(0.2,0.7,0.2,1) ${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+// Homepage-only corrections layered onto the exact same real
+// team_members rows /team reads — nothing here adds, removes, or
+// invents a person; it only affects what this one card displays for
+// the three real, existing rows.
+//
+// Keyed by team_members.name so this only ever touches these specific
+// three (Dacrypto, CryptoTester, Sammy) — a future 4th real active team
+// member would render straight from their own real team_members data,
+// unaffected.
+//
+//   - `role`: the exact label given for this card (Founder / Co-Founder
+//     / Marketing Lead). team_members.primary_role still reads
+//     "Community Support" for Sammy and "Co-founder · Marketing Lead"
+//     for CryptoTester everywhere else (/team, Admin → Team Management)
+//     — unchanged there, this override is scoped to this one section.
+//   - `name`: CryptoTester's team_members.name column has a typo.
+//     Every other real handle already in the project for this same
+//     person — x_url "x.com/cryptotesteer", telegram_url
+//     "t.me/CryptoTesteer" — spells it "CryptoTesteer". Corrected for
+//     display here rather than left wrong; the shared `name` column
+//     itself is untouched.
+//   - `leaderboardUsername`: team_members has no country or XP column
+//     at all. Each of these three also has their own real, existing
+//     Monad Africa community profile (leaderboard_public) — this is
+//     that account's real username, used to pull their genuine country
+//     and XP rather than inventing either. If that lookup ever finds
+//     nothing (account deleted/renamed), the row just omits those two
+//     fields, same as any other member with no match.
+const FEATURED_TEAM_OVERRIDES: Record<string, { name?: string; role: string; leaderboardUsername: string }> = {
+  Dacrypto: { role: 'Founder', leaderboardUsername: 'Dacrypto' },
+  CryptoTester: { name: 'CryptoTesteer', role: 'Co-Founder', leaderboardUsername: 'cryptotesteer' },
+  Sammy: { role: 'Marketing Lead', leaderboardUsername: 'Sammy' },
+}
+
 const defaultSiteContent: SiteContent = {
   hero_title: 'Africa is building on Monad.',
   hero_subtitle: 'Discover the people, projects and opportunities shaping the Monad ecosystem across Africa.',
@@ -119,7 +225,7 @@ export default function Home() {
   const [ecosystemProjects, setEcosystemProjects] = useState<EcosystemProject[] | null>(null)
   const [events, setEvents] = useState<EventListing[] | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[] | null>(null)
-  const [activity, setActivity] = useState<EcosystemActivity[] | null>(null)
+  const [stories, setStories] = useState<CommunityStory[] | null>(null)
   const [countries, setCountries] = useState<{ name: string; count: number }[] | null>(null)
   const [topContributors, setTopContributors] = useState<PublicProfile[] | null>(null)
 
@@ -173,25 +279,70 @@ export default function Home() {
         .limit(9)
         .then(({ data }) => setEvents((data as EventListing[]) ?? []))
 
-      supabase
-        .from('ecosystem_activity')
-        .select('*')
-        .eq('is_published', true)
-        .order('published_at', { ascending: false })
-        .limit(3)
-        .then(({ data }) => setActivity((data as EcosystemActivity[]) ?? []))
-
       supabase.from('projects').select('*').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(4).then(({ data }) => setEcosystemProjects((data as EcosystemProject[]) ?? []))
 
-      // Exactly the official, curated Monad Africa roster — currently 3
-      // active members. Same table/query /team itself uses.
+      // "Featured Builders" — the real, curated Monad Africa core team
+      // (team_members, migration 0035 — same table/query /team itself
+      // reads). Per the marketing lead's follow-up request, this section
+      // is explicitly the team, not the community leaderboard: /builders
+      // remains the separate community directory, linked from the
+      // section's own "Explore all builders" CTA below. `limit(4)` just
+      // caps it at the reference layout's 4 rows — there are currently 3
+      // active members, so nothing pads it out to a 4th.
       supabase
         .from('team_members')
         .select('*')
         .eq('is_active', true)
         .order('display_order', { ascending: true })
+        .limit(4)
+        .then(async ({ data }) => {
+          const members = (data as TeamMember[]) ?? []
+
+          // Pull each overridden member's real country + XP from their
+          // own existing community profile (see FEATURED_TEAM_OVERRIDES
+          // above) — a second, tiny query rather than a join, since
+          // leaderboard_public has no relationship to team_members.
+          const usernames = members
+            .map((m) => FEATURED_TEAM_OVERRIDES[m.name]?.leaderboardUsername)
+            .filter((u): u is string => !!u)
+
+          const profilesByUsername = new Map<string, { country: string | null; xp: number }>()
+          if (usernames.length > 0) {
+            const { data: profiles } = await supabase
+              .from('leaderboard_public')
+              .select('username, country, xp')
+              .in('username', usernames)
+            for (const p of (profiles as { username: string | null; country: string | null; xp: number }[]) ?? []) {
+              if (p.username) profilesByUsername.set(p.username, { country: p.country, xp: p.xp })
+            }
+          }
+
+          setTeamMembers(
+            members.map((m) => {
+              const override = FEATURED_TEAM_OVERRIDES[m.name]
+              if (!override) return m
+              const profile = profilesByUsername.get(override.leaderboardUsername)
+              return {
+                ...m,
+                name: override.name ?? m.name,
+                primary_role: override.role,
+                country: profile?.country ?? m.country,
+                points: profile?.xp ?? m.points,
+              }
+            }),
+          )
+        })
+
+      // Community Stories (migration 0049). An error here — most likely
+      // the migration not having been applied yet — lands in the same
+      // place an empty table does: the card renders its empty state.
+      supabase
+        .from('community_stories')
+        .select('*')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false })
         .limit(3)
-        .then(({ data }) => setTeamMembers((data as TeamMember[]) ?? []))
+        .then(({ data }) => setStories((data as CommunityStory[]) ?? []))
 
       // Real per-country builder counts (leaderboard_public.country) —
       // same source/query /explore's Africa map already uses. Powers
@@ -226,10 +377,10 @@ export default function Home() {
   return (
     <>
       <Hero content={content} settings={settings} liveBountyCount={liveBountyCount} projectCount={projectCount} />
-      <LazySection minHeight="820px"><LiveEcosystemSection activity={activity} /></LazySection>
+      <LazySection minHeight="820px"><LiveEcosystemSection bounties={bounties} projects={ecosystemProjects} events={events} /></LazySection>
       <LazySection minHeight="1500px"><DiscoveryGrid bounties={bounties} teamMembers={teamMembers} projects={ecosystemProjects} /></LazySection>
       <LazySection minHeight="1250px"><ExploreAfricaSection countries={countries} /></LazySection>
-      <LazySection minHeight="1450px"><CommunitySection events={events} settings={settings} topContributors={topContributors} /></LazySection>
+      <LazySection minHeight="1450px"><CommunitySection events={events} settings={settings} topContributors={topContributors} stories={stories} /></LazySection>
       <LazySection minHeight="520px"><FinalCta settings={settings} /></LazySection>
     </>
   )
@@ -266,7 +417,7 @@ function SectionIntro({
   cta?: { label: string; to: string }
 }) {
   return (
-    <Reveal className="flex flex-wrap items-end justify-between gap-6 mb-8">
+    <HomeReveal className="flex flex-wrap items-end justify-between gap-6 mb-8">
       <div className="max-w-2xl">
         <span className="font-mono text-xs uppercase tracking-wider text-purple-light">{kicker}</span>
         <h2 className="font-display font-semibold text-3xl md:text-4xl mt-3">{title}</h2>
@@ -277,7 +428,7 @@ function SectionIntro({
           {cta.label} →
         </Link>
       )}
-    </Reveal>
+    </HomeReveal>
   )
 }
 
@@ -334,8 +485,8 @@ const Hero = memo(function Hero({
       <div className="max-w-7xl mx-auto px-6 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-10 lg:gap-14 items-center">
           <div>
-            <Reveal>
-              <div className="mb-6"><MonadMark size={36} /></div>
+            <HomeReveal>
+              <div className="mb-6"><MonadMark size={36} priority /></div>
               <span className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-purple-light">
                 {/* The subtle "live" status dot — gentle glow/fade loop via
                     tailwind.config.js's monad-pulse animation; only this
@@ -345,16 +496,16 @@ const Hero = memo(function Hero({
                 <span className="w-1.5 h-1.5 rounded-sm bg-purple shadow-[0_0_10px_#8C79FF] animate-monad-pulse motion-reduce:animate-none" />
                 Welcome to Monad Africa
               </span>
-            </Reveal>
-            <Reveal delay={100}>
+            </HomeReveal>
+            <HomeReveal delay={100}>
               <h1 className="font-display font-semibold text-[clamp(2.4rem,5.5vw,4rem)] leading-[1.05] tracking-tight mt-5 mb-6">
                 {renderHeroTitle(content.hero_title)}
               </h1>
-            </Reveal>
-            <Reveal delay={200}>
+            </HomeReveal>
+            <HomeReveal delay={200}>
               <p className="text-lg text-white/60 leading-relaxed max-w-xl mb-9">{content.hero_subtitle}</p>
-            </Reveal>
-            <Reveal delay={300}>
+            </HomeReveal>
+            <HomeReveal delay={300}>
               <div className="flex flex-wrap items-center gap-4 mb-4">
                 {primaryExternal ? (
                   <a href={primaryHref} target="_blank" rel="noopener noreferrer" className="px-8 py-4 rounded-full font-semibold text-center bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
@@ -375,7 +526,7 @@ const Hero = memo(function Hero({
                   </Link>
                 )}
               </div>
-            </Reveal>
+            </HomeReveal>
 
             {/* Smaller, visually secondary — sits under the two primary
                 buttons rather than beside them. Reuses the existing
@@ -383,7 +534,7 @@ const Hero = memo(function Hero({
                 visitors go to /signup, someone already signed in goes
                 straight to their dashboard instead of being asked to
                 sign up again. */}
-            <Reveal delay={350}>
+            <HomeReveal delay={350}>
               {/* Secondary-tier CTA — still deliberately not a third
                   solid gradient button (that would compete with the two
                   primary buttons above), but sized and weighted close to
@@ -398,9 +549,9 @@ const Hero = memo(function Hero({
                 {session ? 'Go to Dashboard' : 'Get Started'}
                 <span className="transition-transform group-hover:translate-x-1">→</span>
               </Link>
-            </Reveal>
+            </HomeReveal>
 
-            <Reveal delay={400}>
+            <HomeReveal delay={400}>
               <div className="flex flex-wrap gap-x-8 gap-y-4">
                 {stats.map((s) => (
                   <div key={s.label} className="flex items-center gap-2.5">
@@ -412,7 +563,7 @@ const Hero = memo(function Hero({
                   </div>
                 ))}
               </div>
-            </Reveal>
+            </HomeReveal>
           </div>
 
           {/* The Africa map — derived from the real Monad Africa "network
@@ -433,79 +584,202 @@ const Hero = memo(function Hero({
               interactive map (real leaderboard_public data) still lives
               further down in "Explore Africa", unchanged — the hero's
               job is brand art, not a data visualization. */}
-          <Reveal delay={150} className="order-first lg:order-last">
+          <HomeReveal delay={150} className="order-first lg:order-last">
             <img
               src="/brand/africa-network-map-purple.webp"
               alt="Stylized network map of the African continent, representing the Monad ecosystem's reach across Africa"
               width={699}
               height={440}
+              // The largest single visual element in the initial viewport
+              // (likely the page's actual LCP element) — fetchPriority
+              // tells the browser to fetch it ahead of lower-priority
+              // requests discovered at the same time during the initial
+              // parse, instead of the default priority every other image
+              // on the page gets.
+              fetchPriority="high"
               className="w-full h-auto max-h-[280px] lg:max-h-[480px] object-contain mx-auto"
             />
-          </Reveal>
+          </HomeReveal>
         </div>
       </div>
     </section>
   )
 })
 
-// "Live across the ecosystem" — a compact teaser of /events'
-// "Ecosystem Pulse" feed (ecosystem_activity, migration 0043/0046).
-// Deliberately NOT a fake calendar: real published rows only, each with
-// an honest freshness label (freshnessLabel never claims "Live" unless
-// a row genuinely still is). The icon/tint per card is a presentation
-// choice keyed off real fields (pulse_category, falling back to a
-// neutral default) — it never changes what data is shown, just how a
-// real category reads visually.
-const PULSE_VISUAL: Partial<Record<NonNullable<EcosystemActivity['pulse_category']>, { Icon: typeof Sparkles; tint: string }>> = {
-  event: { Icon: CalendarDays, tint: 'bg-purple/15 text-purple-light' },
-  announcement: { Icon: Megaphone, tint: 'bg-amber-400/15 text-amber-300' },
-  network: { Icon: Radio, tint: 'bg-emerald-400/15 text-emerald-300' },
-  builder: { Icon: Users, tint: 'bg-purple/15 text-purple-light' },
-  ecosystem: { Icon: Boxes, tint: 'bg-purple/15 text-purple-light' },
-  community: { Icon: MessageCircle, tint: 'bg-rose-400/15 text-rose-300' },
+// "Live across the ecosystem" — rebuilt to match the product spec
+// (references/interface.jpeg). The book draws exactly three cards here,
+// and each one is a THING ON THIS PLATFORM, not an item of Monad news:
+//
+//     OPPORTUNITY   $500 Bounty / Frontend Developer   [View opportunity ->]
+//     PROJECT       KoraPay / payment infrastructure   [Explore project  ->]
+//     EVENT         Monad Lagos Meetup / Sept 14       [View event       ->]
+//
+// The previous implementation instead read `ecosystem_activity` and
+// showed "Monad Ecosystem TVL — $956.9M" and two monad.xyz blog posts.
+// That data is real and still fully published — but it is global Monad
+// news, which is the /events "Ecosystem Pulse" page's job, not this
+// section's, and it is what the marketing lead meant by "it doesn't
+// correlate with what's in the book."
+//
+// Each card is built from a row this page has ALREADY fetched for the
+// Discovery grid below, so correcting this section costs zero extra
+// queries. Every field shown is a real column (a bounty's reward and
+// category, a project's category, an event's date and location) — the
+// book's per-card country flags have no equivalent column on bounties
+// or projects, so a real category is shown rather than a guessed
+// country. A card type with nothing published simply doesn't appear;
+// with nothing published at all, the section renders one honest empty
+// state instead of being padded out.
+type EcosystemHighlight = {
+  key: string
+  kicker: string
+  Icon: typeof Target
+  tint: string
+  title: string
+  subtitle: string | null
+  meta: string | null
+  cta: string
+  to?: string
+  href?: string
 }
-const DEFAULT_PULSE_VISUAL = { Icon: Sparkles, tint: 'bg-purple/15 text-purple-light' }
 
-const LiveEcosystemSection = memo(function LiveEcosystemSection({ activity }: { activity: EcosystemActivity[] | null }) {
-  if (activity !== null && activity.length === 0) return null // no clutter from an empty section
+function buildHighlights(
+  bounties: Bounty[] | null,
+  projects: EcosystemProject[] | null,
+  events: EventListing[] | null,
+): EcosystemHighlight[] {
+  const out: EcosystemHighlight[] = []
+
+  const bounty = bounties?.[0]
+  if (bounty) {
+    out.push({
+      key: `bounty-${bounty.id}`,
+      kicker: 'Opportunity',
+      Icon: Target,
+      tint: 'bg-emerald-400/15 text-emerald-300',
+      title: bounty.title,
+      subtitle: bounty.reward || null,
+      meta: bounty.category || null,
+      cta: 'View opportunity',
+      to: '/opportunities',
+    })
+  }
+
+  const project = projects?.[0]
+  if (project) {
+    out.push({
+      key: `project-${project.id}`,
+      kicker: 'Project',
+      Icon: Boxes,
+      tint: 'bg-purple/15 text-purple-light',
+      title: project.name,
+      subtitle: project.description,
+      meta: project.category || null,
+      cta: 'Explore project',
+      ...(project.website ? { href: project.website } : { to: '/ecosystem' }),
+    })
+  }
+
+  const event = events?.[0]
+  if (event) {
+    out.push({
+      key: `event-${event.id}`,
+      kicker: 'Event',
+      Icon: CalendarDays,
+      tint: 'bg-amber-400/15 text-amber-300',
+      title: event.title,
+      subtitle: formatEventDate(event.event_date),
+      meta: event.location || null,
+      cta: 'View event',
+      to: '/events',
+    })
+  }
+
+  return out
+}
+
+const LiveEcosystemSection = memo(function LiveEcosystemSection({
+  bounties,
+  projects,
+  events,
+}: {
+  bounties: Bounty[] | null
+  projects: EcosystemProject[] | null
+  events: EventListing[] | null
+}) {
+  const loading = bounties === null && projects === null && events === null
+  const highlights = useMemo(() => buildHighlights(bounties, projects, events), [bounties, projects, events])
 
   return (
     <section className="py-16" style={SKIP_OFFSCREEN_WORK('820px')}>
       <div className="max-w-7xl mx-auto px-6">
         <SectionIntro kicker="What's happening" title="Live across the ecosystem" cta={{ label: 'View all updates', to: '/events' }} />
 
-        {activity === null ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {[0, 1, 2].map((i) => <div key={i} className="h-36 rounded-2xl border border-white/10 bg-white/[0.02] animate-pulse" />)}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[0, 1, 2].map((i) => <div key={i} className="h-44 rounded-2xl border border-white/10 bg-white/[0.02] animate-pulse" />)}
           </div>
+        ) : highlights.length === 0 ? (
+          <HomeReveal>
+            <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-8 md:p-10 text-center">
+              <div className="w-11 h-11 rounded-xl bg-purple/15 text-purple-light flex items-center justify-center mx-auto mb-4">
+                <Sparkles size={18} />
+              </div>
+              <h3 className="font-display font-semibold text-lg mb-2">Nothing live right now.</h3>
+              <p className="text-white/50 text-sm max-w-md mx-auto mb-6 leading-relaxed">
+                New opportunities, projects and events across Monad Africa appear here the moment they go
+                live. Nothing is listed until it is real.
+              </p>
+              <div className="flex flex-wrap gap-3 justify-center text-sm font-semibold">
+                <Link to="/host-bounty" className="px-5 py-2.5 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 transition-colors">Host an Opportunity</Link>
+                <Link to="/events" className="px-5 py-2.5 rounded-full text-purple-light hover:text-white transition-colors">See ecosystem updates →</Link>
+              </div>
+            </div>
+          </HomeReveal>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {activity.map((item, i) => {
-              const { Icon, tint } = (item.pulse_category && PULSE_VISUAL[item.pulse_category]) || DEFAULT_PULSE_VISUAL
-              return (
-                <Reveal key={item.id} delay={i * 60}>
-                  <Link to="/events" className="block rounded-2xl border border-white/10 bg-white/[0.02] p-5 h-full hover:border-purple/40 hover:-translate-y-1 transition-all">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tint}`}><Icon size={17} /></div>
-                      <span className="text-[10px] font-mono uppercase text-white/40 truncate">{item.category || item.status}</span>
-                    </div>
-                    <h3 className="font-display font-semibold text-base mb-1.5 leading-snug">{item.title}</h3>
-                    {item.statistic_value ? (
-                      <div className="font-display font-semibold text-lg text-purple-light">{item.statistic_value}</div>
-                    ) : (
-                      item.description && <p className="text-white/50 text-xs leading-relaxed line-clamp-2">{item.description}</p>
-                    )}
-                    <div className="text-white/35 text-[10px] font-mono mt-3">{freshnessLabel(item)}</div>
-                  </Link>
-                </Reveal>
-              )
-            })}
+          // 2-up at sm so a single missing card type never leaves a
+          // stretched, half-empty row on tablet widths.
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {highlights.map((item, i) => (
+              <HomeReveal key={item.key} delay={i * 60}>
+                <HighlightCard item={item} />
+              </HomeReveal>
+            ))}
           </div>
         )}
       </div>
     </section>
   )
 })
+
+function HighlightCard({ item }: { item: EcosystemHighlight }) {
+  const inner = (
+    <>
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.tint}`}><item.Icon size={17} /></div>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-white/40 truncate">{item.kicker}</span>
+      </div>
+      <h3 className="font-display font-semibold text-base mb-1.5 leading-snug line-clamp-2">{item.title}</h3>
+      {item.subtitle && <p className="text-white/50 text-xs leading-relaxed line-clamp-2">{item.subtitle}</p>}
+      <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-white/10">
+        {item.meta ? (
+          <span className="text-[10px] font-mono uppercase px-2 py-1 rounded-full border border-white/15 text-white/45 truncate">{item.meta}</span>
+        ) : (
+          <span />
+        )}
+        <span className="text-xs font-semibold text-purple-light group-hover:text-white transition-colors shrink-0 whitespace-nowrap">{item.cta} →</span>
+      </div>
+    </>
+  )
+
+  const className = 'group flex flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-5 h-full hover:border-purple/40 hover:-translate-y-1 transition-all'
+
+  return item.href ? (
+    <a href={item.href} target="_blank" rel="noopener noreferrer" className={className}>{inner}</a>
+  ) : (
+    <Link to={item.to ?? '/explore'} className={className}>{inner}</Link>
+  )
+}
 
 // The 3-column "discovery" area — Opportunities / Featured Builders /
 // Built in Africa, all real data, all compact rows. Replaces what used
@@ -525,7 +799,7 @@ const DiscoveryGrid = memo(function DiscoveryGrid({
     <section className="py-16" style={SKIP_OFFSCREEN_WORK('1500px')}>
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <Reveal>
+          <HomeReveal>
             <DiscoveryColumn kicker="Opportunities" title="Find your next opportunity" cta={{ label: 'Explore all opportunities', to: '/opportunities' }}>
               {bounties === null ? (
                 <RowSkeletons />
@@ -535,21 +809,35 @@ const DiscoveryGrid = memo(function DiscoveryGrid({
                 bounties.map((b) => <OpportunityRow key={b.id} bounty={b} />)
               )}
             </DiscoveryColumn>
-          </Reveal>
+          </HomeReveal>
 
-          <Reveal delay={80}>
-            <DiscoveryColumn kicker="Featured builders" title="Meet the builders" cta={{ label: 'Meet the team', to: '/team' }}>
+          {/* The real, curated Monad Africa core team (team_members —
+              same table/query /team itself reads). Per the marketing
+              lead: this section represents the team, not the community
+              leaderboard — the community's own builders live in the
+              "Explore Africa" and "Community" sections below, and the
+              full directory at /builders. Both the small "View all →"
+              beside the heading and the "Explore all builders →" CTA at
+              the bottom point at /team, since that's the real roster
+              this card now shows. */}
+          <HomeReveal delay={80}>
+            <DiscoveryColumn
+              kicker="Featured builders"
+              title="Meet the builders"
+              headerCta={{ label: 'View all', to: '/team' }}
+              cta={{ label: 'Explore all builders', to: '/team' }}
+            >
               {teamMembers === null ? (
                 <RowSkeletons />
               ) : teamMembers.length === 0 ? (
                 <p className="text-white/40 text-xs py-4">Team profiles are being set up.</p>
               ) : (
-                teamMembers.map((m) => <TeamMemberRow key={m.id} member={m} />)
+                teamMembers.map((m) => <TeamMemberFeaturedRow key={m.id} member={m} />)
               )}
             </DiscoveryColumn>
-          </Reveal>
+          </HomeReveal>
 
-          <Reveal delay={160}>
+          <HomeReveal delay={160}>
             <DiscoveryColumn kicker="Built in Africa" title="Projects building on Monad" cta={{ label: 'Explore all projects', to: '/explore' }}>
               {projects === null ? (
                 <RowSkeletons />
@@ -559,7 +847,7 @@ const DiscoveryGrid = memo(function DiscoveryGrid({
                 projects.map((p) => <ProjectRow key={p.id} project={p} />)
               )}
             </DiscoveryColumn>
-          </Reveal>
+          </HomeReveal>
         </div>
       </div>
     </section>
@@ -578,16 +866,31 @@ function DiscoveryColumn({
   kicker,
   title,
   cta,
+  headerCta,
   children,
 }: {
   kicker: string
   title: string
   cta: { label: string; to: string }
+  /**
+   * The small "View all →" link beside the heading, matching the
+   * reference layout's Featured Builders card exactly. Optional and
+   * scoped to just that column — the Opportunities/Projects columns
+   * next to it are intentionally left as they were.
+   */
+  headerCta?: { label: string; to: string }
   children: React.ReactNode
 }) {
   return (
     <div className="rounded-squircle border border-white/10 bg-white/[0.02] p-6 flex flex-col h-full">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-purple-light">{kicker}</span>
+      <div className="flex items-start justify-between gap-3">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-purple-light">{kicker}</span>
+        {headerCta && (
+          <Link to={headerCta.to} className="text-xs font-semibold text-purple-light hover:text-white transition-colors shrink-0">
+            {headerCta.label} →
+          </Link>
+        )}
+      </div>
       <h3 className="font-display font-semibold text-lg mt-2 mb-1">{title}</h3>
       <div className="flex-1 flex flex-col divide-y divide-white/10 mt-2">{children}</div>
       <Link to={cta.to} className="mt-5 pt-4 border-t border-white/10 text-sm font-semibold text-purple-light hover:text-white transition-colors">
@@ -654,7 +957,7 @@ const ExploreAfricaSection = memo(function ExploreAfricaSection({ countries }: {
       <div className="max-w-7xl mx-auto px-6">
         <div className="rounded-[40px] border border-white/10 bg-panel/30 p-8 md:p-12">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr_0.7fr] gap-10 items-center">
-            <Reveal>
+            <HomeReveal>
               <span className="font-mono text-xs uppercase tracking-wider text-purple-light flex items-center gap-2"><Globe2 size={14} /> Explore Africa</span>
               <h2 className="font-display font-semibold text-2xl md:text-3xl mt-4 mb-4">Discover the ecosystem across the continent.</h2>
               <p className="text-white/55 text-sm leading-relaxed max-w-md mb-7">
@@ -664,17 +967,21 @@ const ExploreAfricaSection = memo(function ExploreAfricaSection({ countries }: {
               <Link to="/explore" className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold bg-gradient-to-br from-purple-glow to-purple shadow-[0_8px_30px_-8px_rgba(110,84,255,0.65)] hover:-translate-y-0.5 transition-transform">
                 Explore Africa Map →
               </Link>
-            </Reveal>
+            </HomeReveal>
 
-            <Reveal delay={100}>
+            <HomeReveal delay={100}>
               {countries === null ? (
-                <div className="aspect-[600/620] max-h-[380px] rounded-3xl bg-white/[0.02] animate-pulse" />
+                <div className="aspect-[699/440] max-h-[380px] rounded-3xl bg-white/[0.02] animate-pulse" />
               ) : (
-                <AfricaNetworkMap nodes={mapNodes} interactive className="w-full max-h-[380px] mx-auto" />
+                // block + w-full + max-h keeps the SVG inside its column
+                // at every width; showLabels means a phone (no hover)
+                // still reads each country and its builder count without
+                // having to tap.
+                <AfricaNetworkMap nodes={mapNodes} interactive showLabels className="block w-full max-w-full h-auto max-h-[380px] mx-auto" />
               )}
-            </Reveal>
+            </HomeReveal>
 
-            <Reveal delay={150}>
+            <HomeReveal delay={150}>
               <span className="block text-xs font-mono uppercase tracking-wider text-white/40 mb-4">Popular Countries</span>
               {countries === null ? (
                 <div className="flex flex-col gap-2.5">
@@ -684,22 +991,19 @@ const ExploreAfricaSection = memo(function ExploreAfricaSection({ countries }: {
                 <p className="text-white/40 text-xs">Country data will appear as builders join and set their location.</p>
               ) : (
                 <div className="flex flex-col gap-2.5">
-                  {countries.slice(0, 8).map((c) => {
-                    const flag = flagFor(c.name)
-                    return (
-                      <div key={c.name} className="flex items-center justify-between gap-2 text-sm">
-                        <span className="flex items-center gap-2 min-w-0">
-                          {flag && <span className="shrink-0">{flag}</span>}
-                          <span className="truncate text-white/75">{c.name}</span>
-                        </span>
-                        <span className="text-white/35 text-xs font-mono shrink-0">{c.count}</span>
-                      </div>
-                    )
-                  })}
+                  {countries.slice(0, 8).map((c) => (
+                    <div key={c.name} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <CountryFlag country={c.name} size={12} />
+                        <span className="truncate text-white/75">{c.name}</span>
+                      </span>
+                      <span className="text-white/35 text-xs font-mono shrink-0">{c.count}</span>
+                    </div>
+                  ))}
                 </div>
               )}
               <Link to="/explore" className="inline-block mt-4 text-xs font-semibold text-purple-light hover:text-white transition-colors">View all countries →</Link>
-            </Reveal>
+            </HomeReveal>
           </div>
         </div>
       </div>
@@ -707,24 +1011,40 @@ const ExploreAfricaSection = memo(function ExploreAfricaSection({ countries }: {
   )
 })
 
-// "Community" — real upcoming events, real community channels
-// (site_settings), and a real Top Contributors ranking
-// (leaderboard_public.xp, same data /leaderboard uses). The reference's
-// fourth card ("Community Stories") has no real backing content model
-// in this app yet, so it's deliberately left out rather than filled
-// with placeholder copy — see the session's final report.
+// "Community" — the four cards the book draws: Upcoming Events,
+// Monad Spaces, Community Stories, Top Contributors. The old
+// "Community Channels" box (three outbound Discord/X/Telegram links) is
+// gone, as asked; those links still live in the footer and on
+// /community itself, so nothing became unreachable.
+//
+// Every card here opens the community experience rather than a separate
+// destination — Monad Spaces and Community Stories are sections OF
+// /community (#spaces / #stories), which is what "in regards to this
+// section, everything should open in the community aspect" asks for. No
+// card is a dead end, and none of them invent content: each shows real
+// rows or a plain empty state.
 const CommunitySection = memo(function CommunitySection({
   events,
   settings,
   topContributors,
+  stories,
 }: {
   events: EventListing[] | null
   settings: SiteSettings
   topContributors: PublicProfile[] | null
+  stories: CommunityStory[] | null
 }) {
   const navigate = useNavigate()
   const { session } = useAuth()
   const upcoming = useMemo(() => (events ?? []).slice(0, 3), [events])
+
+  // Monad Spaces are `events` rows whose type says so — an X Space IS a
+  // scheduled event, so this reuses the existing events table (and all
+  // of its admin tooling) instead of duplicating it with a second one.
+  const spaces = useMemo(
+    () => (events ?? []).filter((e) => /space/i.test(e.event_type ?? '')).slice(0, 3),
+    [events],
+  )
 
   function openEvent(event: EventListing) {
     if (!session) {
@@ -734,25 +1054,24 @@ const CommunitySection = memo(function CommunitySection({
     navigate('/events', { state: { openEventId: event.id } })
   }
 
-  const channels = [
-    { icon: MessageCircle, label: 'Discord', href: settings.discord_url },
-    { icon: Send, label: 'Telegram', href: settings.telegram_url },
-    { icon: null, label: 'X (Twitter)', href: settings.x_url },
-  ].filter((c) => !!c.href)
-
   return (
     <section className="py-16 bg-panel/30 border-y border-white/10" style={SKIP_OFFSCREEN_WORK('1450px')}>
       <div className="max-w-7xl mx-auto px-6">
         <SectionIntro
           kicker="Community"
           title="Connect, learn, and grow together."
-          subtitle="Events, channels, and the people most active across Monad Africa."
+          subtitle="Events, Spaces, stories, and the people most active across Monad Africa."
           cta={{ label: 'Visit the community', to: '/community' }}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
+        {/* 1 / 2 / 4 columns — four cards in a single row would be
+            unreadably narrow on a small laptop, and a 3-column grid
+            would strand the fourth card alone on its own row. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
           <CommunityCard icon={CalendarDays} label="Upcoming Events">
-            {upcoming.length === 0 ? (
+            {events === null ? (
+              <RowSkeletons />
+            ) : upcoming.length === 0 ? (
               <p className="text-white/40 text-xs">No upcoming events right now.</p>
             ) : (
               <div className="flex flex-col divide-y divide-white/10">
@@ -767,20 +1086,46 @@ const CommunitySection = memo(function CommunitySection({
             <Link to="/events" className="mt-4 pt-3 border-t border-white/10 text-xs font-semibold text-purple-light hover:text-white transition-colors block">View all events →</Link>
           </CommunityCard>
 
-          <CommunityCard icon={MessageCircle} label="Community Channels">
-            {channels.length === 0 ? (
-              <p className="text-white/40 text-xs">Channels coming soon.</p>
+          <CommunityCard icon={Mic} label="Monad Spaces">
+            {events === null ? (
+              <RowSkeletons />
+            ) : spaces.length === 0 ? (
+              <p className="text-white/40 text-xs leading-relaxed">
+                Weekly X Spaces with builders and leaders across Monad Africa. The next one is listed
+                here as soon as it is scheduled.
+              </p>
             ) : (
               <div className="flex flex-col divide-y divide-white/10">
-                {channels.map((c) => (
-                  <a key={c.label} href={c.href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 py-2 first:pt-0 last:pb-0 hover:text-purple-light transition-colors">
-                    {c.icon ? <c.icon size={14} className="text-purple-light shrink-0" /> : <span className="text-purple-light text-xs font-bold shrink-0">𝕏</span>}
-                    <span className="text-sm font-medium">{c.label}</span>
-                  </a>
+                {spaces.map((e) => (
+                  <button key={e.id} onClick={() => openEvent(e)} className="text-left py-2 first:pt-0 last:pb-0 hover:text-purple-light transition-colors">
+                    <div className="text-sm font-medium truncate">{e.title}</div>
+                    <div className="text-white/40 text-xs mt-0.5">{formatEventDate(e.event_date)}</div>
+                  </button>
                 ))}
               </div>
             )}
-            <Link to="/community" className="mt-4 pt-3 border-t border-white/10 text-xs font-semibold text-purple-light hover:text-white transition-colors block">Join a channel →</Link>
+            <Link to="/community#spaces" className="mt-4 pt-3 border-t border-white/10 text-xs font-semibold text-purple-light hover:text-white transition-colors block">Join a Space →</Link>
+          </CommunityCard>
+
+          <CommunityCard icon={BookOpen} label="Community Stories">
+            {stories === null ? (
+              <RowSkeletons />
+            ) : stories.length === 0 ? (
+              <p className="text-white/40 text-xs leading-relaxed">
+                Stories from builders across Africa — what they are shipping on Monad, and how they got
+                here. The first ones are being written.
+              </p>
+            ) : (
+              <div className="flex flex-col divide-y divide-white/10">
+                {stories.map((story) => (
+                  <Link key={story.id} to="/community#stories" className="py-2 first:pt-0 last:pb-0 hover:text-purple-light transition-colors block">
+                    <div className="text-sm font-medium truncate">{story.title}</div>
+                    {story.author_name && <div className="text-white/40 text-xs mt-0.5 truncate">{story.author_name}</div>}
+                  </Link>
+                ))}
+              </div>
+            )}
+            <Link to="/community#stories" className="mt-4 pt-3 border-t border-white/10 text-xs font-semibold text-purple-light hover:text-white transition-colors block">Read stories →</Link>
           </CommunityCard>
 
           <CommunityCard icon={Trophy} label="Top Contributors">
@@ -806,10 +1151,10 @@ const CommunitySection = memo(function CommunitySection({
           </CommunityCard>
         </div>
 
-        <Reveal>
+        <HomeReveal>
           <span className="block text-xs font-mono uppercase tracking-wider text-white/40 mb-4">Monad Africa community</span>
           <CommunityStats settings={settings} compact />
-        </Reveal>
+        </HomeReveal>
       </div>
     </section>
   )
@@ -831,7 +1176,7 @@ function FinalCta({ settings }: { settings: SiteSettings }) {
   return (
     <section className="py-20" style={SKIP_OFFSCREEN_WORK('520px')}>
       <div className="max-w-5xl mx-auto px-6">
-        <Reveal>
+        <HomeReveal>
           <div className="relative rounded-[40px] border border-white/10 bg-gradient-to-br from-panel to-ink p-12 md:p-16 text-center overflow-hidden">
             <div className="absolute -z-10 w-[500px] h-[500px] bg-sunset rounded-full blur-[100px] opacity-20 -top-40 left-1/2 -translate-x-1/2" />
             <h2 className="font-display font-semibold text-3xl md:text-5xl mb-5">Africa is building. Find your place.</h2>
@@ -851,7 +1196,7 @@ function FinalCta({ settings }: { settings: SiteSettings }) {
               <Link to="/partners#partner-form" className="text-white/50 hover:text-white transition-colors">Partner with Monad Africa →</Link>
             </div>
           </div>
-        </Reveal>
+        </HomeReveal>
       </div>
     </section>
   )

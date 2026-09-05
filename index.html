@@ -22,8 +22,26 @@
     <!-- Only the weights actually used anywhere in the app (verified via
          grep for font-{weight} Tailwind classes) are requested — Inter's
          800/extrabold weight isn't referenced anywhere, so it was a
-         wasted font-file download on every single page load. -->
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+         wasted font-file download on every single page load.
+
+         A plain `<link rel="stylesheet">` here blocks first paint on
+         every page load until this CSS file itself is fetched — the
+         preconnect above only removes the DNS/TLS cost, not the fetch
+         itself. Since every face below already carries `display=swap`
+         (text renders in the fallback font immediately and swaps in
+         once the real font arrives — never invisible text), there's no
+         reason first paint should wait on this file at all. The
+         standard non-blocking pattern: request it as a low-priority
+         `preload`, then flip its own `media` to `all` once it lands
+         (the `media="print"` trick makes the browser fetch it without
+         letting it block rendering); `<noscript>` covers the vanishingly
+         rare case of JS-disabled by loading it the normal, blocking way
+         instead. The fonts that end up applied are byte-for-byte the
+         same file either way — this only changes when the browser is
+         allowed to paint, not what gets painted. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
   </head>
   <body class="bg-ink text-white font-body antialiased">
     <div id="root"></div>

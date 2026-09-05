@@ -7,3 +7,4 @@ dist
 *.log
 deno.lock
 .vercel
+.env*

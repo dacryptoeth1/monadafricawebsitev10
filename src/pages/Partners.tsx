@@ -7,6 +7,7 @@ import { notifyAdmin } from '../lib/notifyAdmin'
 import { getErrorMessage, logError } from '../lib/errors'
 import type { Partner } from '../types'
 import Reveal from '../components/Reveal'
+import { BusinessInquirySection } from '../components/BusinessInquiry'
 import EmptyState from '../components/EmptyState'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -31,9 +32,12 @@ export default function Partners() {
   // immediately scroll to the form itself, so there's no intermediate
   // "find the form" step even though it isn't the very first thing on
   // the page (the partner-logo showcase and team card come first).
+  // Both #partner-form and #business-inquiries land on this page, and
+  // ScrollToTop leaves hash navigation to the destination page — so the
+  // page scrolls itself to whichever section was asked for.
   useEffect(() => {
-    if (location.hash !== '#partner-form') return
-    const el = document.getElementById('partner-form')
+    if (!location.hash) return
+    const el = document.getElementById(location.hash.slice(1))
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [location.hash])
 
@@ -61,16 +65,36 @@ export default function Partners() {
           </div>
         ) : (
           <div className="flex flex-wrap gap-4 mt-6">
-            {partners.map((p, i) => (
-              <Reveal key={p.id} delay={i * 50}>
-                <a href={p.website || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-6 py-4 rounded-full border border-white/15 hover:border-gold/40 hover:-translate-y-0.5 transition-all font-display font-semibold">
+            {partners.map((p, i) => {
+              const body = (
+                <>
                   {p.logo_url ? <img src={p.logo_url} alt={p.name} loading="lazy" className="w-6 h-6 rounded object-cover" /> : <span className="w-5 h-5 rounded bg-gradient-to-br from-purple-glow to-purple" />}
                   {p.name}
-                </a>
-              </Reveal>
-            ))}
+                </>
+              )
+              // A partner with no website is still shown — just as a
+              // plain badge rather than a link to "#".
+              const base = 'flex items-center gap-3 px-6 py-4 rounded-full border border-white/15 font-display font-semibold'
+              return (
+                <Reveal key={p.id} delay={i * 50}>
+                  {p.website ? (
+                    <a href={p.website} target="_blank" rel="noopener noreferrer" className={`${base} hover:border-gold/40 hover:-translate-y-0.5 transition-all`}>{body}</a>
+                  ) : (
+                    <div className={base}>{body}</div>
+                  )}
+                </Reveal>
+              )
+            })}
           </div>
         )}
+
+        {/* The commercial front door: sponsorships, media, ecosystem
+            initiatives. Reachable from the Partners nav dropdown and
+            the footer (both of which open the same content as a modal),
+            and directly linkable as /partners#business-inquiries. */}
+        <Reveal className="mt-24 pt-24 border-t border-white/10">
+          <BusinessInquirySection />
+        </Reveal>
 
         {/* This page is deliberately partnerships-focused, not a place
             to feature team members — the roster lives at /team. A prior
