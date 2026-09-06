@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, Users } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 import type { PublicProfile } from '../types'
 import Reveal from '../components/Reveal'
 import EmptyState from '../components/EmptyState'
 import AfricaNetworkMap from '../components/AfricaNetworkMap'
 import BuilderCard from '../components/BuilderCard'
+import { fetchFeaturedBuilders, FEATURED_BUILDER_OVERRIDES } from '../lib/featuredBuilders'
 
 // The public builder directory — one of the four main IA sections
 // (Explore / Builders / Opportunities / Community). Reads the same
@@ -15,7 +15,20 @@ import BuilderCard from '../components/BuilderCard'
 // real data presented as a browsable "who's building" directory rather
 // than a ranked table, linking out to /leaderboard for anyone who wants
 // the full ranking. No invented skills/roles — only the fields the view
-// actually exposes (name, avatar, country, XP, referrals).
+// actually exposes (name, avatar, country, XP, referrals, bio, X,
+// website, project/company).
+//
+// This is the community builder directory — developers, founders,
+// creators, designers, community builders and every other real
+// registered account — and is deliberately NOT the Monad Africa team
+// roster (that's /team, its own separate table/page). Two of Monad
+// Africa's own founders also happen to be registered community
+// builders, so per an explicit request they're pinned to the top of
+// this directory with their real team role/project shown alongside
+// their real builder profile — every other card here is untouched,
+// plain `leaderboard_public` data. This exact same fetch (see
+// featuredBuilders.ts) also backs the homepage's "Meet the Builders"
+// preview, so the two can never show different people.
 const DIRECTORY_SIZE = 60
 
 export default function Builders() {
@@ -24,12 +37,7 @@ export default function Builders() {
   const [country, setCountry] = useState('All')
 
   useEffect(() => {
-    supabase
-      .from('leaderboard_public')
-      .select('*')
-      .order('xp', { ascending: false })
-      .limit(DIRECTORY_SIZE)
-      .then(({ data }) => setBuilders((data as PublicProfile[]) ?? []))
+    fetchFeaturedBuilders(DIRECTORY_SIZE).then(setBuilders)
   }, [])
 
   // Derived from the real fetched rows — not a fixed list — so it only
@@ -98,7 +106,9 @@ export default function Builders() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((b, i) => (
-              <Reveal key={b.id} delay={Math.min(i, 8) * 40}><BuilderCard builder={b} /></Reveal>
+              <Reveal key={b.id} delay={Math.min(i, 8) * 40}>
+                <BuilderCard builder={b} override={b.username ? FEATURED_BUILDER_OVERRIDES[b.username] : undefined} />
+              </Reveal>
             ))}
           </div>
         )}

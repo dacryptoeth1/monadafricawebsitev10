@@ -13,6 +13,13 @@ import { OrganiserLogo } from './EventCard'
 export default function ExternalEventModal({ event, onClose }: { event: EventListing; onClose: () => void }) {
   const startTime = formatEventTime(event.start_time)
   const endTime = formatEventTime(event.end_time)
+  // `event_url` is typed as "the official event page", but for an event
+  // like this one it's actually the outbound registration link (Luma) —
+  // labeled accordingly so the button says what it does instead of the
+  // generic "View Event" for every external event regardless of what
+  // its link actually goes to.
+  const isRegistrationLink = !!event.event_url && /luma\.com|lu\.ma|eventbrite\.com/i.test(event.event_url)
+  const eventUrlLabel = isRegistrationLink ? 'Register' : 'View Event'
 
   return (
     <motion.div
@@ -65,7 +72,7 @@ export default function ExternalEventModal({ event, onClose }: { event: EventLis
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold bg-gradient-to-br from-purple-glow to-purple hover:-translate-y-0.5 transition-transform"
             >
-              View Event <ExternalLink size={13} />
+              {eventUrlLabel} <ExternalLink size={13} />
             </a>
           )}
           {event.x_url && (

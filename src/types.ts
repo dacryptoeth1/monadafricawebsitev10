@@ -118,6 +118,17 @@ export interface PublicProfile {
   // had 0049 applied yet simply gets `undefined` and renders the
   // XP-rank fallback, rather than throwing.
   role?: UserRole | null
+  // Added to the view in migration 0054 — the same bio/twitter/website
+  // a builder already edits on their own profile (src/pages/Profile.tsx),
+  // now readable on their public Explore Builders card. All optional/
+  // nullable for the same reason as `role` above: a client on an older
+  // schema just gets `undefined` and the card renders without them.
+  bio?: string | null
+  twitter?: string | null
+  website?: string | null
+  // A builder's project or company — e.g. "Purple". Genuinely new
+  // column (migration 0054); most rows have none yet.
+  project_or_company?: string | null
 }
 
 export type UserRole = 'Developer' | 'Designer' | 'Content Creator' | 'Community Member' | 'Founder' | 'Student'
@@ -139,6 +150,9 @@ export interface Profile {
   discord: string | null
   website: string | null
   github: string | null
+  // Added in migration 0054 — a builder's project or company, shown on
+  // their public Explore Builders card. Self-set on /profile.
+  project_or_company: string | null
   wallet_address: string | null
   wallet_provider: string | null
   credits: number

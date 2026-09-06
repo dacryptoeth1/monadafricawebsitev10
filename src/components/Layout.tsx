@@ -60,8 +60,8 @@ const NAV_GROUPS: NavGroup[] = [
         // ecosystem") rather than becoming a fifth top-level item.
         title: 'Team / Builders',
         items: [
-          { label: 'Team', to: '/team' },
-          { label: 'Builder Directory', to: '/builders' },
+          { label: 'Our Team', to: '/team' },
+          { label: 'Explore Builders', to: '/builders' },
           { label: 'Leaderboard', to: '/leaderboard' },
         ],
       },

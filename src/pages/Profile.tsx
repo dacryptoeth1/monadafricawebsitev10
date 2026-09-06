@@ -105,6 +105,7 @@ export default function Profile() {
         region,
         ...roleUpdate,
         bio: String(data.get('bio') || ''),
+        project_or_company: String(data.get('project_or_company') || ''),
         twitter: String(data.get('twitter') || ''),
         telegram: String(data.get('telegram') || ''),
         discord: String(data.get('discord') || ''),
@@ -224,6 +225,8 @@ export default function Profile() {
               <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Bio</label>
               <textarea name="bio" rows={3} defaultValue={profile.bio ?? ''} placeholder="A short line about you" className="input resize-y" />
             </div>
+
+            <Field label="Project / Company" name="project_or_company" defaultValue={profile.project_or_company ?? ''} placeholder="What are you building?" />
 
             <div className="grid grid-cols-2 gap-4">
               <Field label="X / Twitter" name="twitter" defaultValue={profile.twitter ?? ''} placeholder="@handle" />

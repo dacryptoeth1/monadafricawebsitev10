@@ -4,11 +4,20 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ExternalLink, Globe, X } from 'lucide-react'
 import type { EcosystemProject } from '../types'
 
+// `onError` falls back to the initials tile instead of a broken-image
+// icon if `logo_url` ever points at something unreachable — same
+// reliability fix as EventCard's OrganiserLogo, so a project's icon is
+// never left blank/broken even on a bad URL.
 function LogoTile({ project, size = 'md' }: { project: EcosystemProject; size?: 'md' | 'lg' }) {
+  const [failed, setFailed] = useState(false)
   const dims = size === 'lg' ? 'w-16 h-16 text-lg' : 'w-12 h-12 text-sm'
   return (
     <div className={`${dims} rounded-xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 font-display font-bold`}>
-      {project.logo_url ? <img src={project.logo_url} alt={project.name} loading="lazy" className="w-full h-full object-cover" /> : project.name.slice(0, 2).toUpperCase()}
+      {project.logo_url && !failed ? (
+        <img src={project.logo_url} alt={project.name} loading="lazy" onError={() => setFailed(true)} className="w-full h-full object-cover" />
+      ) : (
+        project.name.slice(0, 2).toUpperCase()
+      )}
     </div>
   )
 }

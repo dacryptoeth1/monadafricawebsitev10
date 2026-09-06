@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CalendarDays, Clock, MapPin, Users } from 'lucide-react'
 import type { EventListing } from '../types'
 import { formatEventDate, formatEventTime, getRegistrationStatus } from '../lib/eventStatus'
@@ -13,15 +14,32 @@ const STATUS_STYLES: Record<string, string> = {
 // Fallback for an event/organiser with no logo uploaded — same "initials
 // tile" convention used for bounties, ecosystem projects and partners
 // elsewhere in the app (see BountyCard/EcosystemLogoTile), so an event
-// with no logo never falls back to a random generic icon.
+// with no logo never falls back to a random generic icon. Circular
+// (rounded-full) rather than the app's usual squircle: this is a brand
+// mark shown next to an organiser's name, not a photo. `object-contain`
+// plus inset padding means a logo is always shown whole, never cropped
+// — important for a wide/rectangular logo like Monad's own. `onError`
+// covers the other failure mode (a broken/unreachable URL): the tile
+// falls back to the initials instead of a broken-image icon, so an
+// organiser's circle is never left blank either way.
 export function OrganiserLogo({ name, logoUrl, size = 40 }: { name: string; logoUrl: string | null; size?: number }) {
+  const [failed, setFailed] = useState(false)
+  const showImage = !!logoUrl && !failed
+
   return (
     <div
-      className="rounded-xl bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 font-display font-bold"
+      className="rounded-full bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 font-display font-bold"
       style={{ width: size, height: size, fontSize: size * 0.32 }}
     >
-      {logoUrl ? (
-        <img src={logoUrl} alt={name} loading="lazy" className="w-full h-full object-cover" />
+      {showImage ? (
+        <img
+          src={logoUrl}
+          alt={name}
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="w-full h-full object-contain"
+          style={{ padding: Math.max(2, Math.round(size * 0.12)) }}
+        />
       ) : (
         <span>{name.slice(0, 2).toUpperCase()}</span>
       )}

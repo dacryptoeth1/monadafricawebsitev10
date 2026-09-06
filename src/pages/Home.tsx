@@ -4,15 +4,16 @@ import { Link, useNavigate } from 'react-router-dom'
 import { BookOpen, Boxes, CalendarDays, Globe2, Mic, Sparkles, Target, Trophy, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import type { Bounty, CommunityStory, EcosystemProject, EventListing, PublicProfile, SiteContent, SiteSettings, TeamMember } from '../types'
+import type { Bounty, CommunityStory, EcosystemProject, EventListing, PublicProfile, SiteContent, SiteSettings } from '../types'
 import { useSiteSettings } from '../hooks/useSiteSettings'
 import { formatEventDate } from '../lib/eventStatus'
 import { positionFor } from '../lib/africaGeo'
+import { fetchFeaturedBuilders, FEATURED_BUILDER_OVERRIDES } from '../lib/featuredBuilders'
 import Counter from '../components/Counter'
 import AfricaNetworkMap, { type MapNode } from '../components/AfricaNetworkMap'
 import { KentePattern } from '../components/PatternBackground'
 import CountryFlag from '../components/CountryFlag'
-import { TeamMemberFeaturedRow } from '../components/TeamMemberCard'
+import { BuilderRow } from '../components/BuilderCard'
 import MonadMark from '../components/MonadMark'
 import CommunityStats from '../components/CommunityStats'
 import { ProjectModal, ProjectRow } from '../components/ProjectCard'
@@ -171,40 +172,6 @@ function HomeReveal({
   )
 }
 
-// Homepage-only corrections layered onto the exact same real
-// team_members rows /team reads — nothing here adds, removes, or
-// invents a person; it only affects what this one card displays for
-// the three real, existing rows.
-//
-// Keyed by team_members.name so this only ever touches these specific
-// three (Dacrypto, CryptoTester, Sammy) — a future 4th real active team
-// member would render straight from their own real team_members data,
-// unaffected.
-//
-//   - `role`: the exact label given for this card (Founder / Co-Founder
-//     / Marketing Lead). team_members.primary_role still reads
-//     "Community Support" for Sammy and "Co-founder · Marketing Lead"
-//     for CryptoTester everywhere else (/team, Admin → Team Management)
-//     — unchanged there, this override is scoped to this one section.
-//   - `name`: CryptoTester's team_members.name column has a typo.
-//     Every other real handle already in the project for this same
-//     person — x_url "x.com/cryptotesteer", telegram_url
-//     "t.me/CryptoTesteer" — spells it "CryptoTesteer". Corrected for
-//     display here rather than left wrong; the shared `name` column
-//     itself is untouched.
-//   - `leaderboardUsername`: team_members has no country or XP column
-//     at all. Each of these three also has their own real, existing
-//     Monad Africa community profile (leaderboard_public) — this is
-//     that account's real username, used to pull their genuine country
-//     and XP rather than inventing either. If that lookup ever finds
-//     nothing (account deleted/renamed), the row just omits those two
-//     fields, same as any other member with no match.
-const FEATURED_TEAM_OVERRIDES: Record<string, { name?: string; role: string; leaderboardUsername: string }> = {
-  Dacrypto: { role: 'Founder', leaderboardUsername: 'Dacrypto' },
-  CryptoTester: { name: 'CryptoTesteer', role: 'Co-Founder', leaderboardUsername: 'cryptotesteer' },
-  Sammy: { role: 'Marketing Lead', leaderboardUsername: 'Sammy' },
-}
-
 const defaultSiteContent: SiteContent = {
   hero_title: 'Africa is building on Monad.',
   hero_subtitle: 'Discover the people, projects and opportunities shaping the Monad ecosystem across Africa.',
@@ -226,7 +193,7 @@ export default function Home() {
   const [projectCount, setProjectCount] = useState(0)
   const [ecosystemProjects, setEcosystemProjects] = useState<EcosystemProject[] | null>(null)
   const [events, setEvents] = useState<EventListing[] | null>(null)
-  const [teamMembers, setTeamMembers] = useState<TeamMember[] | null>(null)
+  const [builders, setBuilders] = useState<PublicProfile[] | null>(null)
   const [stories, setStories] = useState<CommunityStory[] | null>(null)
   const [countries, setCountries] = useState<{ name: string; count: number }[] | null>(null)
   const [topContributors, setTopContributors] = useState<PublicProfile[] | null>(null)
@@ -294,57 +261,14 @@ export default function Home() {
 
       supabase.from('projects').select('*').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(4).then(({ data }) => setEcosystemProjects((data as EcosystemProject[]) ?? []))
 
-      // "Featured Builders" — the real, curated Monad Africa core team
-      // (team_members, migration 0035 — same table/query /team itself
-      // reads). Per the marketing lead's follow-up request, this section
-      // is explicitly the team, not the community leaderboard: /builders
-      // remains the separate community directory, linked from the
-      // section's own "Explore all builders" CTA below. `limit(4)` just
-      // caps it at the reference layout's 4 rows — there are currently 3
-      // active members, so nothing pads it out to a 4th.
-      supabase
-        .from('team_members')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
-        .limit(4)
-        .then(async ({ data }) => {
-          const members = (data as TeamMember[]) ?? []
-
-          // Pull each overridden member's real country + XP from their
-          // own existing community profile (see FEATURED_TEAM_OVERRIDES
-          // above) — a second, tiny query rather than a join, since
-          // leaderboard_public has no relationship to team_members.
-          const usernames = members
-            .map((m) => FEATURED_TEAM_OVERRIDES[m.name]?.leaderboardUsername)
-            .filter((u): u is string => !!u)
-
-          const profilesByUsername = new Map<string, { country: string | null; xp: number }>()
-          if (usernames.length > 0) {
-            const { data: profiles } = await supabase
-              .from('leaderboard_public')
-              .select('username, country, xp')
-              .in('username', usernames)
-            for (const p of (profiles as { username: string | null; country: string | null; xp: number }[]) ?? []) {
-              if (p.username) profilesByUsername.set(p.username, { country: p.country, xp: p.xp })
-            }
-          }
-
-          setTeamMembers(
-            members.map((m) => {
-              const override = FEATURED_TEAM_OVERRIDES[m.name]
-              if (!override) return m
-              const profile = profilesByUsername.get(override.leaderboardUsername)
-              return {
-                ...m,
-                name: override.name ?? m.name,
-                primary_role: override.role,
-                country: profile?.country ?? m.country,
-                points: profile?.xp ?? m.points,
-              }
-            }),
-          )
-        })
+      // "Meet the Builders" — real, registered Monad Africa community
+      // builders (`leaderboard_public`, the exact same source/query the
+      // full /builders directory reads — see featuredBuilders.ts).
+      // Deliberately NOT the Monad Africa team roster: the team has its
+      // own separate page/table at /team. `limit(4)` just caps this
+      // preview at the reference layout's 4 rows; "Explore all
+      // builders" below links to the full directory.
+      fetchFeaturedBuilders(4).then(setBuilders)
 
       // Community Stories (migration 0049). An error here — most likely
       // the migration not having been applied yet — lands in the same
@@ -391,7 +315,7 @@ export default function Home() {
     <>
       <Hero content={content} settings={settings} liveBountyCount={liveBountyCount} projectCount={projectCount} />
       <LazySection minHeight="820px"><LiveEcosystemSection bounties={bounties} projects={ecosystemProjects} events={events} /></LazySection>
-      <LazySection minHeight="1500px"><DiscoveryGrid bounties={bounties} teamMembers={teamMembers} projects={ecosystemProjects} /></LazySection>
+      <LazySection minHeight="1500px"><DiscoveryGrid bounties={bounties} builders={builders} projects={ecosystemProjects} /></LazySection>
       <LazySection minHeight="1250px"><ExploreAfricaSection countries={countries} /></LazySection>
       <LazySection minHeight="1450px"><CommunitySection events={events} settings={settings} topContributors={topContributors} stories={stories} /></LazySection>
       <LazySection minHeight="520px"><FinalCta settings={settings} /></LazySection>
@@ -665,6 +589,12 @@ type EcosystemHighlight = {
   // (a project card must never link straight to its website; see
   // ProjectCard.tsx).
   project?: EcosystemProject
+  // The project's real logo_url / the event's real organiser_logo_url —
+  // rendered directly on the card itself (see HighlightIconTile below),
+  // replacing the generic kicker icon whenever a real one exists. Never
+  // waits for a click: this is the same eagerly-rendered image the card
+  // shows on first paint, not something revealed only in the modal.
+  logoUrl?: string | null
 }
 
 function buildHighlights(
@@ -704,6 +634,7 @@ function buildHighlights(
       // link out to project.website, same rule as every other project
       // card on the site.
       project,
+      logoUrl: project.logo_url,
     })
   }
 
@@ -719,6 +650,7 @@ function buildHighlights(
       meta: event.location || null,
       cta: 'View event',
       to: '/events',
+      logoUrl: event.organiser_logo_url,
     })
   }
 
@@ -779,11 +711,42 @@ const LiveEcosystemSection = memo(function LiveEcosystemSection({
   )
 })
 
+// The real logo for a Project/Event highlight (Purple's own logo,
+// Monad's own logo for the organiser) — shown directly on the card
+// itself, on first paint, never only inside the click-through modal.
+// `loading="eager"` is deliberate here: this whole section already
+// waits to MOUNT until it's near the viewport (see LazySection in
+// Home.tsx), so by the time this image exists in the DOM at all it's
+// already meant to be shown immediately, not deferred a second time by
+// the browser's own lazy-load heuristic. Falls back to the generic
+// kicker icon (never a blank tile) if there's no real logo, or if the
+// real one fails to load.
+function HighlightIconTile({ item }: { item: EcosystemHighlight }) {
+  const [failed, setFailed] = useState(false)
+  const showLogo = !!item.logoUrl && !failed
+
+  return (
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${item.tint}`}>
+      {showLogo ? (
+        <img
+          src={item.logoUrl!}
+          alt=""
+          loading="eager"
+          onError={() => setFailed(true)}
+          className="w-full h-full object-contain p-1"
+        />
+      ) : (
+        <item.Icon size={17} />
+      )}
+    </div>
+  )
+}
+
 function HighlightCard({ item }: { item: EcosystemHighlight }) {
   const inner = (
     <>
       <div className="flex items-center gap-3 mb-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.tint}`}><item.Icon size={17} /></div>
+        <HighlightIconTile item={item} />
         <span className="text-[10px] font-mono uppercase tracking-wider text-white/40 truncate">{item.kicker}</span>
       </div>
       <h3 className="font-display font-semibold text-base mb-1.5 leading-snug line-clamp-2">{item.title}</h3>
@@ -843,11 +806,11 @@ function ProjectHighlightCard({ project, className, children }: { project: Ecosy
 // instead of a long scroll of similar-looking bands.
 const DiscoveryGrid = memo(function DiscoveryGrid({
   bounties,
-  teamMembers,
+  builders,
   projects,
 }: {
   bounties: Bounty[] | null
-  teamMembers: TeamMember[] | null
+  builders: PublicProfile[] | null
   projects: EcosystemProject[] | null
 }) {
   return (
@@ -866,28 +829,26 @@ const DiscoveryGrid = memo(function DiscoveryGrid({
             </DiscoveryColumn>
           </HomeReveal>
 
-          {/* The real, curated Monad Africa core team (team_members —
-              same table/query /team itself reads). Per the marketing
-              lead: this section represents the team, not the community
-              leaderboard — the community's own builders live in the
-              "Explore Africa" and "Community" sections below, and the
-              full directory at /builders. Both the small "View all →"
-              beside the heading and the "Explore all builders →" CTA at
-              the bottom point at /team, since that's the real roster
-              this card now shows. */}
+          {/* Real, registered Monad Africa community builders
+              (`leaderboard_public` — the exact same source/query the
+              full /builders directory reads, via featuredBuilders.ts).
+              Deliberately NOT the Monad Africa team roster — that's its
+              own separate page/table at /team. Both the small "View
+              all →" beside the heading and the "Explore all builders →"
+              CTA at the bottom point at /builders. */}
           <HomeReveal delay={80}>
             <DiscoveryColumn
               kicker="Featured builders"
               title="Meet the builders"
-              headerCta={{ label: 'View all', to: '/team' }}
-              cta={{ label: 'Explore all builders', to: '/team' }}
+              headerCta={{ label: 'View all', to: '/builders' }}
+              cta={{ label: 'Explore all builders', to: '/builders' }}
             >
-              {teamMembers === null ? (
+              {builders === null ? (
                 <RowSkeletons />
-              ) : teamMembers.length === 0 ? (
-                <p className="text-white/40 text-xs py-4">Team profiles are being set up.</p>
+              ) : builders.length === 0 ? (
+                <p className="text-white/40 text-xs py-4">No builders on the leaderboard yet — be the first to earn XP.</p>
               ) : (
-                teamMembers.map((m) => <TeamMemberFeaturedRow key={m.id} member={m} />)
+                builders.map((b) => <BuilderRow key={b.id} builder={b} override={b.username ? FEATURED_BUILDER_OVERRIDES[b.username] : undefined} />)
               )}
             </DiscoveryColumn>
           </HomeReveal>
