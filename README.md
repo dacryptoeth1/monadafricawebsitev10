@@ -130,6 +130,20 @@ don't commit `.env.local` itself. `netlify.toml` is already set up for SPA routi
 `/bounties`, `/admin`, etc. work on direct load/refresh, and points Netlify Functions at
 `netlify/functions` for the server-side event-verification endpoints.
 
+## Deploy to Vercel
+
+This is the project's actual live deployment (`monadafrica.com` / `www.monadafrica.com`) — a
+separate Vercel project from the Netlify setup above, also building from this same repo.
+`vercel.json` has the SPA rewrite (`/(.*)` → `/index.html`) and the daily
+`api/sync-ecosystem-tvl` cron; `api/notify-admin` and `api/sync-ecosystem-tvl` deploy as Vercel
+Functions automatically. **The project's Production Branch (Vercel dashboard → Settings → Git)
+must be `main`** — it was found set to a stale `master` branch, which meant every push to `main`
+still built successfully but was never promoted to the live custom domain (it only got a
+`*-git-main-*.vercel.app` preview URL, gated behind Vercel's SSO protection like any other
+non-custom-domain deployment — which is what "the latest deployment renders a blank page" turned
+out to be: not an app bug, a deployment-config mismatch). Fixed once, directly on the Vercel
+project; nothing in this repo enforces it, so re-check that setting if it ever happens again.
+
 ## What's new this round
 
 ### Role system
