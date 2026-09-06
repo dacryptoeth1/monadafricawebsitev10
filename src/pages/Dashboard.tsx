@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import type { AppNotification, Application, Bounty, CreditTransaction, Submission } from '../types'
 import Reveal from '../components/Reveal'
 import SubmissionModal from '../components/SubmissionModal'
+import DailyCheckIn from '../components/DailyCheckIn'
 
 interface AppRow extends Application {
   bounties: Pick<Bounty, 'title' | 'reward' | 'logo_url' | 'project_name' | 'is_closed' | 'is_deleted'> | null
@@ -40,12 +41,20 @@ export default function Dashboard() {
       // owner read it, so this always came back as "0 users have more
       // XP than me" (i.e. rank #1) for literally every user before the
       // public view existed. See migration 0032.
-      supabase.from('leaderboard_public').select('id', { count: 'exact', head: true }).gt('xp', profile.xp),
+      // Not `{ head: true }`: Supabase's Cloudflare edge sends
+      // `Content-Encoding: br` on the HEAD response for a count-only
+      // query even though a HEAD response has no body — Chromium
+      // reliably aborts that (net::ERR_ABORTED) trying to decode a
+      // Brotli body that isn't there, silently leaving these three
+      // counts stuck at their default. A plain GET with `limit(1)`
+      // still returns the exact count via `Content-Range`, without
+      // the empty-body HEAD response that triggers the bug.
+      supabase.from('leaderboard_public').select('id', { count: 'exact' }).gt('xp', profile.xp).limit(1),
       supabase.from('credit_transactions').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(15),
       // Partnership/bounty-hosting applications — see migration 0037 and
       // ProjectBountyDashboard.tsx (linked below).
-      supabase.from('partnership_applications').select('id', { count: 'exact', head: true }).eq('created_by', profile.id),
-      supabase.from('bounty_hosting_requests').select('id', { count: 'exact', head: true }).eq('created_by', profile.id),
+      supabase.from('partnership_applications').select('id', { count: 'exact' }).eq('created_by', profile.id).limit(1),
+      supabase.from('bounty_hosting_requests').select('id', { count: 'exact' }).eq('created_by', profile.id).limit(1),
     ])
     setApplications((apps as AppRow[]) ?? [])
     setSubmissions((subs as SubRow[]) ?? [])
@@ -115,6 +124,10 @@ export default function Dashboard() {
               Edit Profile
             </Link>
           </div>
+        </Reveal>
+
+        <Reveal className="mb-8">
+          <DailyCheckIn profile={profile} onCheckedIn={refreshProfile} />
         </Reveal>
 
         <Reveal className="rounded-squircle border border-white/10 bg-white/[0.02] p-5 mb-12">

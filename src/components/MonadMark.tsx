@@ -19,7 +19,12 @@ export default function MonadMark({ size = 28, className = '', priority = false 
       width={size}
       height={size}
       loading={priority ? 'eager' : 'lazy'}
-      {...(priority ? { fetchPriority: 'high' as const } : {})}
+      // Lowercase, not the camelCase `fetchPriority` — this React
+      // version (18.3) doesn't recognize that prop name and silently
+      // drops it (with a dev-console warning), which means the actual
+      // browser hint never lands. The lowercase spelling is passed
+      // through untouched as a real DOM attribute either way.
+      {...(priority ? { fetchpriority: 'high' as const } : {})}
       className={`inline-block rounded-lg object-cover shrink-0 ${className}`}
       style={{ width: size, height: size }}
     />

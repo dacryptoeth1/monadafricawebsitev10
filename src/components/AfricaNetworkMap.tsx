@@ -303,7 +303,22 @@ const AfricaNetworkMap = memo(function AfricaNetworkMap({
             {/* A dark disc under every data marker keeps it legible over
                 the brighter parts of the artwork. */}
             {isRealData && <circle r={r + 2.5} fill="#07050A" opacity="0.6" />}
-            <circle r={r} fill={i % 2 === 0 ? '#E8B75D' : '#A99AFF'} className={interactive ? 'transition-[r] duration-200' : undefined} />
+            {/* The marker's own subtle blink/pulse — opacity + scale
+                breathing between 0.9x/0.6 and 1.1x/1, per the marketing
+                brief. Unlike the ring's ripple above, this runs at every
+                breakpoint (including mobile): it's just two compositor-
+                friendly properties, not an expanding multi-frame effect,
+                so it stays cheap even with a dozen nodes animating at
+                once. Each node gets its own delay so they visibly drift
+                in and out of phase with each other rather than blinking
+                in unison, which is what would read as a generic/looping
+                animation instead of real, staggered activity. */}
+            <circle
+              r={r}
+              fill={i % 2 === 0 ? '#E8B75D' : '#A99AFF'}
+              className={`${interactive ? 'transition-[r] duration-200 ' : ''}${animate ? 'origin-center animate-node-blink motion-reduce:animate-none' : ''}`}
+              style={animate ? { transformBox: 'fill-box', animationDelay: `${i * 0.35}s` } : undefined}
+            />
             {interactive && active === i && (
               <circle r={r + 3} fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.9" />
             )}

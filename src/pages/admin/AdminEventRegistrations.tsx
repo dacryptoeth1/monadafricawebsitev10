@@ -10,6 +10,7 @@ const EMPTY_FORM: Record<string, string> = {
   title: '', description: '', event_date: '', event_type: '', start_time: '', end_time: '',
   location: '', image_url: '', event_url: '', capacity: '', registration_deadline: '', status: 'published',
   requires_email_verification: 'false', organiser_name: '', organiser_logo_url: '',
+  is_external: 'false', x_url: '',
 }
 
 interface VerificationStats {
@@ -102,6 +103,8 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
       requires_email_verification: String(ev.requires_email_verification),
       organiser_name: ev.organiser_name ?? '',
       organiser_logo_url: ev.organiser_logo_url ?? '',
+      is_external: String(ev.is_external),
+      x_url: ev.x_url ?? '',
     })
     setEditingId(ev.id)
     setShowForm(true)
@@ -131,6 +134,8 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
       requires_email_verification: form.requires_email_verification === 'true',
       organiser_name: form.organiser_name.trim() || null,
       organiser_logo_url: form.organiser_logo_url.trim() || null,
+      is_external: form.is_external === 'true',
+      x_url: form.x_url.trim() || null,
     }
 
     const ok = editingId
@@ -213,6 +218,11 @@ export default function AdminEventRegistrations({ showToast }: { showToast: (msg
                         {ev.requires_email_verification && (
                           <span className="flex items-center gap-1 text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-purple/30 text-purple-light">
                             <ShieldCheck size={10} /> email verification
+                          </span>
+                        )}
+                        {ev.is_external && (
+                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full border border-purple/30 text-purple-light">
+                            external
                           </span>
                         )}
                       </div>
@@ -304,10 +314,26 @@ function EventForm({
         <LabeledInput label="Organiser logo URL" value={form.organiser_logo_url} onChange={(v) => set('organiser_logo_url', v)} />
         <LabeledInput label="Cover image URL" value={form.image_url} onChange={(v) => set('image_url', v)} />
         <LabeledInput label="Event link (optional)" value={form.event_url} onChange={(v) => set('event_url', v)} />
+        <LabeledInput label="X / Twitter announcement link (optional)" value={form.x_url} onChange={(v) => set('x_url', v)} />
         <div className="sm:col-span-2">
           <label className="font-mono text-[10px] uppercase tracking-wider text-white/40 block mb-1.5">Description</label>
           <textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} className="input w-full text-sm resize-y" />
         </div>
+        <label className="sm:col-span-2 flex items-start gap-2.5 text-xs text-white/60 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.is_external === 'true'}
+            onChange={(e) => set('is_external', String(e.target.checked))}
+            className="mt-0.5"
+          />
+          <span>
+            <span className="text-white/80 font-medium">External event (no registration through Monad Africa)</span>
+            <br />
+            For an event hosted elsewhere (e.g. a Monad Foundation event) — the card opens a plain info view with
+            "View Event" / "View on X" links instead of the registration form, and never requires sign-in just to see
+            the details. Set registration closed below too, since nothing here is actually being collected.
+          </span>
+        </label>
         <label className="sm:col-span-2 flex items-start gap-2.5 text-xs text-white/60 cursor-pointer">
           <input
             type="checkbox"

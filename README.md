@@ -29,6 +29,41 @@ setup it depends on.
 
 ## Required database step for this round
 
+`supabase/migrations/0050_daily_checkin_purple_project_singapore_event.sql` must be run in
+the Supabase SQL Editor (after 0049). It is additive and safe to re-run. It adds:
+
+- The **Daily Check-in** system: `profiles.last_checkin_date` / `checkin_streak`, the
+  `daily_checkin` row in `xp_reward_config` (1 XP, admin-editable), and the `daily_checkin()`
+  RPC the Dashboard's check-in card calls — server-verified calendar-date gating, so it can't
+  be farmed by repeated clicks or a manipulated client clock.
+- The **Purple** project (`projects.founder_name` / `founder_x` / `country` columns, plus the
+  real row) — no website was supplied, so that field is left blank until a real one is added
+  via Admin → Ecosystem Projects.
+- The **Open** (Monad Foundation, Singapore, Oct 6 2026) event (`events.is_external` /
+  `x_url` columns, plus the real row) — an external event Monad Africa isn't collecting
+  registrations for, so its card opens a plain info view instead of the login-gated
+  registration flow.
+- The corrected homepage hero title ("Africa is building on Monad.").
+
+Until it is applied: the check-in card still renders but `daily_checkin()` errors on click
+(caught, shown as "Couldn't check in right now"); Purple and the Singapore event simply don't
+exist yet; and the hero title keeps whatever `site_content.hero_title` already holds.
+
+`supabase/migrations/0051_purple_logo.sql` must be run after 0050 to set Purple's real logo
+(`/brand/purple-logo.jpg`) — supplied after 0050 had already been applied, so it's a separate
+one-line follow-up rather than an edit to an already-run migration.
+
+`supabase/migrations/0052_purple_links.sql` must be run after 0051 to add `projects.project_x`
+(the project's own X account — distinct from `founder_x`, the founder's personal account) and
+set Purple's real website. Until it's applied, Purple's modal only shows the "Founder" link
+button; "X Account" and "Website" appear the moment this migration runs, no code change needed.
+
+`supabase/migrations/0053_daily_checkin_race_safety.sql` must be run after 0052. It re-creates
+`daily_checkin()` with one added clause (`select ... for update`, row-locking the caller's own
+profile for the transaction) so two near-simultaneous calls for the same user — a very fast
+double-click, or two open tabs — can no longer both slip past the "already checked in today"
+check and award XP twice. No behavior change for the ordinary single-call case.
+
 `supabase/migrations/0049_community_builders_and_stories.sql` must be run in the Supabase
 SQL Editor. It is additive and safe to re-run (no table dropped, no column removed, no row
 rewritten). Until it is applied the site still works — every affected surface falls back to

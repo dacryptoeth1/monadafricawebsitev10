@@ -157,6 +157,13 @@ export interface Profile {
   last_seen: string | null
   created_at: string
   updated_at: string
+  // Daily check-in (migration 0050) — last_checkin_date is a plain
+  // calendar date (no time component), so "already checked in today"
+  // is always a same-calendar-day comparison, never a rolling 24-hour
+  // window. checkin_streak is display-only (no bonus XP for it) and
+  // resets to 1 whenever a day is missed — see daily_checkin() in SQL.
+  last_checkin_date: string | null
+  checkin_streak: number
 }
 
 export interface Badge {
@@ -301,6 +308,16 @@ export interface EcosystemProject {
   category: string | null
   is_featured: boolean
   created_at: string
+  // Added in migration 0050 — the project's real founder, shown on the
+  // project card/modal the same way a team member's name is shown on
+  // their own card. All nullable/optional: a project with no founder on
+  // file just omits that section rather than inventing one.
+  founder_name?: string | null
+  founder_x?: string | null
+  country?: string | null
+  // Added in migration 0052 — the PROJECT's own X account, distinct
+  // from founder_x (the founder's personal account) above.
+  project_x?: string | null
 }
 
 export interface Resource {
@@ -582,6 +599,14 @@ export interface EventListing {
   // the UI falls back to "Monad Africa" / initials when blank.
   organiser_name: string | null
   organiser_logo_url: string | null
+  // Added in migration 0050 — an event Monad Africa isn't collecting
+  // registrations for (e.g. an external Monad Foundation event). True
+  // means the event card opens a plain info view (ExternalEventModal)
+  // with "View Event" / "View on X" links instead of the login-gated
+  // registration flow. x_url is that event's X/Twitter announcement,
+  // shown alongside event_url (the official page).
+  is_external: boolean
+  x_url: string | null
 }
 
 export interface EventRegistration {

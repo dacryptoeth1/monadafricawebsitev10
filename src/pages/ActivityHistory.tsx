@@ -107,6 +107,7 @@ export default function ActivityHistory() {
 function formatReason(reason: string): string {
   if (reason.startsWith('bounty_application:')) return 'Applied to a bounty'
   if (reason.startsWith('submission_approved:')) return 'Submission approved'
+  if (reason.startsWith('daily_checkin:')) return 'Daily check-in'
   if (reason === 'signup_bonus' || reason === 'signup_bonus_backfill') return 'Welcome bonus'
   if (reason === 'referral_bonus') return 'Referral bonus'
   if (reason === 'profile_complete_bonus') return 'Completed your profile'

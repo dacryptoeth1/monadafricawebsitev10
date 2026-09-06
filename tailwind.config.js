@@ -51,10 +51,21 @@ export default {
           '0%': { transform: 'scale(1)', opacity: '0.6' },
           '100%': { transform: 'scale(2.6)', opacity: '0' },
         },
+        // The node markers themselves "breathing" — a gentle, real
+        // ecosystem-activity feel (per the marketing brief) rather than
+        // the ring's expanding ripple above. Opacity+transform+a subtle
+        // drop-shadow glow — cheap enough to run on every breakpoint
+        // including mobile (a handful of small circles, not the whole
+        // map), unlike the ripple ring (md+ only, see AfricaNetworkMap).
+        'node-blink': {
+          '0%, 100%': { opacity: '0.45', transform: 'scale(0.9)', filter: 'drop-shadow(0 0 1px rgba(169,154,255,0.35))' },
+          '50%': { opacity: '1', transform: 'scale(1.1)', filter: 'drop-shadow(0 0 6px rgba(169,154,255,0.85))' },
+        },
       },
       animation: {
         'monad-pulse': 'monad-pulse 2.4s ease-in-out infinite',
         'network-pulse': 'network-pulse 2.6s ease-out infinite',
+        'node-blink': 'node-blink 2.8s ease-in-out infinite',
       },
     },
   },

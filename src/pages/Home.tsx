@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { BookOpen, Boxes, CalendarDays, Globe2, Mic, Sparkles, Target, Trophy, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -14,6 +15,7 @@ import CountryFlag from '../components/CountryFlag'
 import { TeamMemberFeaturedRow } from '../components/TeamMemberCard'
 import MonadMark from '../components/MonadMark'
 import CommunityStats from '../components/CommunityStats'
+import { ProjectModal, ProjectRow } from '../components/ProjectCard'
 
 // Built against the reference layout the product spec supplies
 // (references/interface.jpeg — "the book"): dense, card-based,
@@ -238,13 +240,24 @@ export default function Home() {
   // first paint instead, via requestIdleCallback so it never blocks or
   // delays anything actually visible yet.
   useEffect(() => {
+    // Not `{ head: true }`: Supabase's Cloudflare edge sends a
+    // `Content-Encoding: br` header on the HEAD response for a
+    // count-only query even though a HEAD response has no body —
+    // Chromium reliably aborts that (net::ERR_ABORTED) trying to
+    // decode a Brotli body that isn't there, so `liveBountyCount` and
+    // `projectCount` silently stayed 0 forever on every Chromium-based
+    // browser. A plain GET with `limit(1)` still returns the exact
+    // count via the `Content-Range` response header (and Supabase's
+    // own count-only helpers below build on the same mechanism), while
+    // avoiding the empty-body HEAD response that triggers the bug.
     supabase
       .from('bounties')
-      .select('id', { count: 'exact', head: true })
+      .select('id', { count: 'exact' })
       .eq('status', 'approved')
       .eq('is_deleted', false)
+      .limit(1)
       .then(({ count }) => setLiveBountyCount(count ?? 0))
-    supabase.from('projects').select('id', { count: 'exact', head: true }).then(({ count }) => setProjectCount(count ?? 0))
+    supabase.from('projects').select('id', { count: 'exact' }).limit(1).then(({ count }) => setProjectCount(count ?? 0))
     supabase
       .from('site_content')
       .select('*')
@@ -591,12 +604,18 @@ const Hero = memo(function Hero({
               width={699}
               height={440}
               // The largest single visual element in the initial viewport
-              // (likely the page's actual LCP element) — fetchPriority
+              // (likely the page's actual LCP element) — fetchpriority
               // tells the browser to fetch it ahead of lower-priority
               // requests discovered at the same time during the initial
               // parse, instead of the default priority every other image
-              // on the page gets.
-              fetchPriority="high"
+              // on the page gets. Lowercase (not the camelCase
+              // `fetchPriority`) and spread rather than a literal JSX
+              // attribute — this React version (18.3) doesn't recognize
+              // the camelCase prop at runtime and silently drops it
+              // (with a console warning) despite @types/react allowing
+              // it; the lowercase spelling is passed through untouched
+              // as the real DOM attribute.
+              {...{ fetchpriority: 'high' as const }}
               className="w-full h-auto max-h-[280px] lg:max-h-[480px] object-contain mx-auto"
             />
           </HomeReveal>
@@ -641,6 +660,11 @@ type EcosystemHighlight = {
   cta: string
   to?: string
   href?: string
+  // Set only for the 'Project' highlight — opens the same ProjectModal
+  // every other project card uses instead of navigating anywhere
+  // (a project card must never link straight to its website; see
+  // ProjectCard.tsx).
+  project?: EcosystemProject
 }
 
 function buildHighlights(
@@ -675,8 +699,11 @@ function buildHighlights(
       title: project.name,
       subtitle: project.description,
       meta: project.category || null,
-      cta: 'Explore project',
-      ...(project.website ? { href: project.website } : { to: '/ecosystem' }),
+      cta: 'View project',
+      // Opens the project modal (see HighlightCard) — never a direct
+      // link out to project.website, same rule as every other project
+      // card on the site.
+      project,
     })
   }
 
@@ -774,10 +801,38 @@ function HighlightCard({ item }: { item: EcosystemHighlight }) {
 
   const className = 'group flex flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-5 h-full hover:border-purple/40 hover:-translate-y-1 transition-all'
 
+  // The Project highlight opens the same ProjectModal every other
+  // project card on the site uses — never a direct link to its
+  // website (see ProjectCard.tsx). Bounty/Event highlights are
+  // unchanged: still plain navigation, same as before.
+  if (item.project) {
+    return <ProjectHighlightCard project={item.project} className={className}>{inner}</ProjectHighlightCard>
+  }
+
   return item.href ? (
     <a href={item.href} target="_blank" rel="noopener noreferrer" className={className}>{inner}</a>
   ) : (
     <Link to={item.to ?? '/explore'} className={className}>{inner}</Link>
+  )
+}
+
+function ProjectHighlightCard({ project, className, children }: { project: EcosystemProject; className: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <div
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true) } }}
+        role="button"
+        tabIndex={0}
+        aria-haspopup="dialog"
+        aria-label={`View ${project.name} project details`}
+        className={`${className} cursor-pointer`}
+      >
+        {children}
+      </div>
+      <AnimatePresence>{open && <ProjectModal project={project} onClose={() => setOpen(false)} />}</AnimatePresence>
+    </>
   )
 }
 
@@ -915,25 +970,6 @@ function OpportunityRow({ bounty }: { bounty: Bounty }) {
   )
 }
 
-function ProjectRow({ project }: { project: EcosystemProject }) {
-  const inner = (
-    <div className="flex items-center gap-3 py-2.5">
-      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-glow to-purple flex items-center justify-center overflow-hidden shrink-0 text-[10px] font-display font-bold">
-        {project.logo_url ? <img src={project.logo_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : project.name.slice(0, 2).toUpperCase()}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium truncate">{project.name}</div>
-        {project.category && <div className="text-white/40 text-xs truncate">{project.category}</div>}
-      </div>
-    </div>
-  )
-  return project.website ? (
-    <a href={project.website} target="_blank" rel="noopener noreferrer" className="-mx-2 px-2 rounded-lg hover:bg-white/[0.03] transition-colors block">{inner}</a>
-  ) : (
-    <div>{inner}</div>
-  )
-}
-
 // The larger, standalone Africa section — same real per-country data as
 // the hero map (passed down from Home()), just a bigger map plus a
 // "Popular Countries" list. Mirrors /explore's own "Explore Africa"
@@ -1047,7 +1083,10 @@ const CommunitySection = memo(function CommunitySection({
   )
 
   function openEvent(event: EventListing) {
-    if (!session) {
+    // External events (e.g. a Monad Foundation event Monad Africa isn't
+    // hosting registration for) just show info + outbound links — no
+    // need to force a sign-in first, unlike a real registration flow.
+    if (!event.is_external && !session) {
       navigate('/login', { state: { from: '/events', eventId: event.id } })
       return
     }

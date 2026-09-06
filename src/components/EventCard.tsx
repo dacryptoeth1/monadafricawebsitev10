@@ -42,6 +42,11 @@ export default function EventCard({
   const startTime = formatEventTime(event.start_time)
   const endTime = formatEventTime(event.end_time)
   const organiser = event.organiser_name || 'Monad Africa'
+  // An external event (Monad Africa isn't collecting registrations for
+  // it) never shows a "registration closed" style badge — that would
+  // read as if Monad Africa itself closed something. It gets a neutral
+  // "External event" tag instead.
+  const badge = event.is_external ? { label: 'External event', className: 'text-purple-light border-purple/30 bg-purple/10' } : { label: info.label, className: STATUS_STYLES[info.status] }
 
   return (
     <button
@@ -56,8 +61,8 @@ export default function EventCard({
             <CalendarDays size={32} className="text-purple-light/40" />
           </div>
         )}
-        <span className={`absolute top-3 right-3 text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border ${STATUS_STYLES[info.status]}`}>
-          {info.label}
+        <span className={`absolute top-3 right-3 text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border ${badge.className}`}>
+          {badge.label}
         </span>
       </div>
 

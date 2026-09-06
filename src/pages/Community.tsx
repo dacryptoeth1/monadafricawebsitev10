@@ -76,7 +76,9 @@ export default function Community() {
   }, [location.hash, events, stories])
 
   function openEvent(event: EventListing) {
-    if (!session) {
+    // External events (Monad Africa isn't collecting registrations for
+    // them) just show info + outbound links — no need to force sign-in.
+    if (!event.is_external && !session) {
       navigate('/login', { state: { from: '/events', eventId: event.id } })
       return
     }

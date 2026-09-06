@@ -9,6 +9,7 @@ import { freshnessLabel, pickFeaturedMoment, ACTIVITY_STATUS_STYLES, PULSE_CATEG
 import { positionFor } from '../lib/africaGeo'
 import EventCard from '../components/EventCard'
 import EventRegistrationModal from '../components/EventRegistrationModal'
+import ExternalEventModal from '../components/ExternalEventModal'
 import EmptyState from '../components/EmptyState'
 import Reveal from '../components/Reveal'
 import AfricaNetworkMap, { type MapNode } from '../components/AfricaNetworkMap'
@@ -211,7 +212,9 @@ export default function Events() {
   // of a modal that would just fail. `from`/`eventId` are read back by
   // Login.tsx to return here and reopen this exact event afterward.
   function handleOpen(event: EventListing) {
-    if (!session) {
+    // External events (Monad Africa isn't collecting registrations for
+    // them) open a plain info view — no reason to force a sign-in first.
+    if (!event.is_external && !session) {
       navigate('/login', { state: { from: '/events', eventId: event.id } })
       return
     }
@@ -410,12 +413,16 @@ export default function Events() {
 
       <AnimatePresence>
         {selected && (
-          <EventRegistrationModal
-            event={selected}
-            registeredCount={selected.capacity !== null ? counts[selected.id] ?? null : null}
-            onClose={() => setSelected(null)}
-            onRegistered={() => refreshCount(selected.id)}
-          />
+          selected.is_external ? (
+            <ExternalEventModal event={selected} onClose={() => setSelected(null)} />
+          ) : (
+            <EventRegistrationModal
+              event={selected}
+              registeredCount={selected.capacity !== null ? counts[selected.id] ?? null : null}
+              onClose={() => setSelected(null)}
+              onRegistered={() => refreshCount(selected.id)}
+            />
+          )
         )}
       </AnimatePresence>
     </section>

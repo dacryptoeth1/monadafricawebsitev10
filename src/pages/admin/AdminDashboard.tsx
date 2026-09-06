@@ -463,6 +463,10 @@ export default function AdminDashboard() {
                 { name: 'logo_url', label: 'Logo URL', type: 'url' },
                 { name: 'website', label: 'Website', type: 'url' },
                 { name: 'category', label: 'Category', placeholder: 'DeFi' },
+                { name: 'country', label: 'Country', placeholder: 'Nigeria (or "Africa")' },
+                { name: 'founder_name', label: 'Founder Name' },
+                { name: 'founder_x', label: "Founder's X (Twitter) URL", type: 'url' },
+                { name: 'project_x', label: "Project's own X (Twitter) URL", type: 'url' },
                 { name: 'description', label: 'Description', type: 'textarea' },
               ]}
             />
