@@ -107,10 +107,15 @@ export default function ActivityHistory() {
 function formatReason(reason: string): string {
   if (reason.startsWith('bounty_application:')) return 'Applied to a bounty'
   if (reason.startsWith('submission_approved:')) return 'Submission approved'
+  if (reason.startsWith('bounty_winner:')) return 'Won a bounty'
+  if (reason.startsWith('bounty_host:')) return 'Hosted a bounty'
+  if (reason.startsWith('product_submission:')) return 'Submitted your work'
   if (reason.startsWith('daily_checkin:')) return 'Daily check-in'
   if (reason === 'signup_bonus' || reason === 'signup_bonus_backfill') return 'Welcome bonus'
   if (reason === 'referral_bonus') return 'Referral bonus'
   if (reason === 'profile_complete_bonus') return 'Completed your profile'
+  if (reason === 'wallet_connect_bonus') return 'Connected wallet'
+  if (reason === 'first_submission_bonus') return 'First bounty application bonus'
   if (reason === 'admin_reset') return 'Reset by admin'
   if (reason === 'admin_adjustment') return 'Adjusted by admin'
   return reason.replace(/_/g, ' ')

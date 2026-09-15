@@ -8,6 +8,13 @@ interface SignUpFields {
   username: string
   country: string
   role: string
+  // Required at signup (see Signup.tsx) — validated client-side before
+  // this is ever called, then written straight into profiles.twitter /
+  // profiles.discord by handle_new_user() (migration 0055). Optional
+  // here in the type only so existing/older callers don't break; the
+  // signup form itself never submits without them.
+  twitter?: string
+  discord?: string
   referredByCode?: string
 }
 
@@ -165,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           username: fields.username,
           country: fields.country,
           role: fields.role,
+          twitter: fields.twitter || null,
+          discord: fields.discord || null,
           referred_by_code: fields.referredByCode || null,
         },
         // Always the current deployed origin — never hardcoded to

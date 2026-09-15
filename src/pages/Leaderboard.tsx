@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trophy } from 'lucide-react'
+import { Flame, Trophy } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getRank } from '../lib/rank'
 import { useAuth } from '../context/AuthContext'
@@ -29,7 +29,7 @@ export default function Leaderboard() {
     let cancelled = false
     supabase
       .from('leaderboard_public')
-      .select('id, username, full_name, avatar_url, country, xp, total_referrals')
+      .select('id, username, full_name, avatar_url, country, xp, total_referrals, checkin_streak')
       .order('xp', { ascending: false })
       .limit(TOP_N)
       .then(({ data, error }) => {
@@ -63,8 +63,8 @@ export default function Leaderboard() {
           <span className="font-mono text-xs uppercase tracking-wider text-purple-light">Ranked by XP</span>
           <h1 className="font-display font-semibold text-4xl md:text-5xl mt-4">🏆 African Leaderboard</h1>
           <p className="text-white/55 mt-4 max-w-lg mx-auto">
-            Earned by submitting bounties, winning them, referring builders, and completing
-            your profile — updates automatically as the community builds.
+            Earned by hosting and winning bounties, submitting your work, checking in daily,
+            and completing your profile — updates automatically as the community builds.
           </p>
         </Reveal>
 
@@ -125,6 +125,11 @@ export default function Leaderboard() {
                     </div>
                     <div className="text-white/40 text-xs">{u.country || '—'} · {getRank(u.xp).emoji} {getRank(u.xp).name}</div>
                   </div>
+                  {!!u.checkin_streak && (
+                    <span className="hidden sm:inline-flex items-center gap-1 text-xs font-mono px-2.5 py-1 rounded-full border border-gold/30 bg-gold/10 text-gold shrink-0">
+                      <Flame size={12} /> {u.checkin_streak}
+                    </span>
+                  )}
                   <div className="font-display font-semibold text-sm text-purple-light shrink-0">{u.xp} XP</div>
                   {!isMe && <ReportButton targetType="user" targetId={u.id} className="shrink-0" />}
                 </div>

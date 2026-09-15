@@ -7,6 +7,24 @@ import CountrySelect from '../components/CountrySelect'
 import MonadMark from '../components/MonadMark'
 import { USER_ROLES, normalizeUserRole } from '../lib/userRole'
 import { getErrorMessage, logError } from '../lib/errors'
+import { isValidDiscordHandle, isValidXProfile } from '../lib/socialLinks'
+
+// A referral field on signup may be a full link
+// (https://.../signup?ref=CODE) or a bare code someone was told
+// verbally/in a DM — accept either and always send just the code
+// through to referred_by_code. Never awards XP either way (see
+// migration 0055) — referrals only ever grant the existing +1 credit
+// to the referrer now.
+function extractReferralCode(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed) return ''
+  try {
+    const url = new URL(trimmed)
+    return url.searchParams.get('ref') || ''
+  } catch {
+    return trimmed
+  }
+}
 
 export default function Signup() {
   const { signUp } = useAuth()
@@ -16,6 +34,7 @@ export default function Signup() {
 
   const [countryIso, setCountryIso] = useState('')
   const [countryName, setCountryName] = useState('')
+  const [referralInput, setReferralInput] = useState(refCode)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -26,6 +45,8 @@ export default function Signup() {
     const data = new FormData(e.currentTarget)
     const email = String(data.get('email') || '')
     const password = String(data.get('password') || '')
+    const twitter = String(data.get('twitter') || '').trim()
+    const discord = String(data.get('discord') || '').trim()
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters.')
@@ -33,6 +54,19 @@ export default function Signup() {
     }
     if (!countryName) {
       setError('Please select your country.')
+      return
+    }
+
+    // Twitter/X and Discord are compulsory for every new signup (see
+    // the round's brief) — re-verified here rather than trusting only
+    // the <input required> attribute, since that can be bypassed by
+    // submitting the form programmatically.
+    if (!isValidXProfile(twitter)) {
+      setError('Please enter a valid X/Twitter profile (e.g. https://x.com/yourhandle or @yourhandle).')
+      return
+    }
+    if (!isValidDiscordHandle(discord)) {
+      setError('Please enter a valid Discord username or invite link (e.g. yourname or https://discord.gg/...).')
       return
     }
 
@@ -55,7 +89,9 @@ export default function Signup() {
         username: String(data.get('username') || ''),
         country: countryName,
         role: normalizedRole,
-        referredByCode: refCode,
+        twitter,
+        discord,
+        referredByCode: extractReferralCode(referralInput),
       })
       setDone(true)
     } catch (err) {
@@ -119,11 +155,19 @@ export default function Signup() {
               </select>
             </div>
 
-            {refCode && (
-              <div className="text-xs text-purple-light bg-purple/10 border border-purple/25 rounded-xl px-4 py-2.5">
-                Referred by code <span className="font-mono">{refCode}</span>
-              </div>
-            )}
+            <Field label="X / Twitter" name="twitter" placeholder="https://x.com/yourhandle" required />
+            <Field label="Discord" name="discord" placeholder="yourname or a discord.gg link" required />
+
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">Referral link or code (optional)</label>
+              <input
+                name="referral"
+                value={referralInput}
+                onChange={(e) => setReferralInput(e.target.value)}
+                placeholder="Paste a referral link or code"
+                className="input"
+              />
+            </div>
 
             {error && <div className="text-sm text-rose-300">{error}</div>}
 
@@ -141,11 +185,11 @@ export default function Signup() {
   )
 }
 
-function Field({ label, name, type = 'text', required }: { label: string; name: string; type?: string; required?: boolean }) {
+function Field({ label, name, type = 'text', required, placeholder }: { label: string; name: string; type?: string; required?: boolean; placeholder?: string }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="font-mono text-[11px] uppercase tracking-wider text-white/40">{label}</label>
-      <input name={name} type={type} required={required} className="input" />
+      <input name={name} type={type} required={required} placeholder={placeholder} className="input" />
     </div>
   )
 }
