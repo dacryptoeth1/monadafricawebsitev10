@@ -129,6 +129,10 @@ export interface PublicProfile {
   // A builder's project or company — e.g. "Purple". Genuinely new
   // column (migration 0054); most rows have none yet.
   project_or_company?: string | null
+  // Added to the view in migration 0055 — the same display-only streak
+  // counter shown on a builder's own Dashboard (profiles.checkin_streak).
+  // Optional/nullable for the same reason as `role` above.
+  checkin_streak?: number | null
 }
 
 export type UserRole = 'Developer' | 'Designer' | 'Content Creator' | 'Community Member' | 'Founder' | 'Student'

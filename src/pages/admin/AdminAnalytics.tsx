@@ -11,6 +11,8 @@ const XP_REASON_LABELS: Record<string, string> = {
   first_submission_bonus: 'First Submission Bonus',
   submission_approved: 'Submission Approved',
   bounty_winner: 'Bounty Winner',
+  bounty_host: 'Bounty Hosted',
+  product_submission: 'Product Submission',
   profile_complete_bonus: 'Profile Complete',
   wallet_connect_bonus: 'Wallet Connect',
   admin_adjustment: 'Admin Adjustment',

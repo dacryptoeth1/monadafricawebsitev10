@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import type { Badge, UserBadge } from '../types'
 import { USER_ROLES, normalizeUserRole } from '../lib/userRole'
+import { isValidDiscordHandle, isValidXProfile } from '../lib/socialLinks'
 import Reveal from '../components/Reveal'
 import CountrySelect from '../components/CountrySelect'
 import RegionSelect from '../components/RegionSelect'
@@ -71,6 +72,21 @@ export default function Profile() {
     const username = String(data.get('username') || '').trim()
     if (!username) {
       setError('Username is required.')
+      return
+    }
+
+    // Twitter/Discord aren't required here for an existing account that
+    // signed up before this field existed (see migration 0055) — but if
+    // they're filling one in, it should be a real handle/link rather
+    // than random text, same basic check as the signup form.
+    const twitterInput = String(data.get('twitter') || '').trim()
+    if (twitterInput && !isValidXProfile(twitterInput)) {
+      setError('That doesn’t look like a valid X/Twitter handle or profile link.')
+      return
+    }
+    const discordInput = String(data.get('discord') || '').trim()
+    if (discordInput && !isValidDiscordHandle(discordInput)) {
+      setError('That doesn’t look like a valid Discord username or invite link.')
       return
     }
 
